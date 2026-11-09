@@ -1,0 +1,79 @@
+# Builds the private research library from the Google Drive archive and deploys it to GitHub Pages.
+#   1. tools/drive_sync.py   crawls the Drive archive (read-only) and downloads new/changed papers into a cache
+#   2. tools/build_index.py  builds the encrypted full-text and meaning index + metadata (no full texts are published)
+#   3. the site is deployed to GitHub Pages
+# Runs every 6 hours, on demand (Actions tab > "Build library" > Run workflow), and when the site code changes.
+# Google access: Workload Identity Federation (keyless). The automatic runs stay off until the repository variable
+# LIBRARY_BUILD_ENABLED is "true", which you set after the "Verify Drive access" workflow passes.
+# Setup: README.md > Deployment.
+name: Build library
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["index.html", "config.json", "tools/**", "data/blogs.enc", ".github/workflows/build-library.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: library-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: vars.LIBRARY_BUILD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      CACHE_DIR: .cache/drive
+      DRIVE_ROOT_FOLDER_ID: ${{ vars.DRIVE_ROOT_FOLDER_ID || '1TbckZTHb2sbKMZDyskcgt0uczTfimXnI' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate to Google Cloud (Workload Identity Federation, no keys)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install tools
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
+          pip install -q requests google-auth numpy scipy scikit-learn cryptography
+      - name: Restore the Drive text cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/drive
+          key: drive-cache-${{ github.run_id }}
+          restore-keys: drive-cache-
+      - name: Sync from Google Drive (new and changed papers only)
+        run: python3 tools/drive_sync.py
+      - name: Save the Drive text cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/drive
+          key: drive-cache-${{ github.run_id }}
+      - name: Build the encrypted index
+        run: python3 tools/build_index.py --out site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
