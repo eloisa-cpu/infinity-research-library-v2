@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     env:
+      PYTHONUNBUFFERED: "1"        # show progress lines immediately in the Actions log
       CACHE_DIR: .cache/drive
       DRIVE_ROOT_FOLDER_ID: ${{ vars.DRIVE_ROOT_FOLDER_ID || '1TbckZTHb2sbKMZDyskcgt0uczTfimXnI' }}
     steps:
@@ -62,6 +63,7 @@ jobs:
           path: .cache/drive
           key: drive-cache-${{ github.run_id }}
       - name: Build the encrypted index
+        timeout-minutes: 90
         run: python3 tools/build_index.py --out site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
