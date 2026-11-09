@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      PYTHONUNBUFFERED: "1"
       DRIVE_ROOT_FOLDER_ID: ${{ vars.DRIVE_ROOT_FOLDER_ID || '1TbckZTHb2sbKMZDyskcgt0uczTfimXnI' }}
     steps:
       - uses: actions/checkout@v4
