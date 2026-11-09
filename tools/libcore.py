@@ -73,6 +73,47 @@ def semantic_tokens(text):
     return out
 
 
+# Fast equivalents used by the index builder: count each distinct word of a document once and clean it up once
+# (cached), instead of handling every occurrence. Results equal Counter(index_tokens(t)) / Counter(semantic_tokens(t)).
+_IDX_CACHE, _SEM_CACHE = {}, {}
+
+
+def _clean_index_word(w):
+    if len(w) < 2 or len(w) > 40 or w in STOP:
+        return ""
+    w = stem(w)
+    return "" if w in STOP else w
+
+
+def _clean_semantic_word(w):
+    if len(w) < 2 or w.isdigit() or w in STOP:
+        return ""
+    w = stem(w)
+    return "" if w in STOP else w
+
+
+def _count(raw, cache, clean):
+    from collections import Counter
+    if len(cache) > 3_000_000:
+        cache.clear()
+    out = Counter()
+    for w, c in Counter(raw).items():
+        s = cache.get(w)
+        if s is None:
+            s = cache[w] = clean(w)
+        if s:
+            out[s] += c
+    return out
+
+
+def index_counts(text):
+    return _count(WORD_RE.findall(unicodedata.normalize("NFKC", text).lower()), _IDX_CACHE, _clean_index_word)
+
+
+def semantic_counts(text):
+    return _count(ASCII_RE.findall(text.lower()), _SEM_CACHE, _clean_semantic_word)
+
+
 def fnv1a(s):
     h = 0x811C9DC5
     for b in s.encode("utf-8"):
