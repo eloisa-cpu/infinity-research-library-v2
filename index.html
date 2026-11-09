@@ -1,0 +1,1652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Infinity Research Library</title>
+<style>
+  :root {
+    --bg: #fafaf9; --panel: #ffffff; --text: #1c1917; --muted: #6b6560; --line: #e7e5e4;
+    --accent: #1d4ed8; --accent-soft: #eff4ff; --name: #7c3aed; --mark: #fde68a; --mark-current: #f59e0b; --code: #f5f5f4;
+    --role: #0f766e; --role-soft: #e6f6f4; --ext: #b45309; --ext-soft: #fff7ed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141414; --panel: #1c1c1c; --text: #ecebe9; --muted: #a19d98; --line: #2e2e2e;
+      --accent: #8ab4ff; --accent-soft: #1d2638; --name: #c4b5fd; --mark: #6b5310; --mark-current: #b7791f; --code: #242424;
+      --role: #5eead4; --role-soft: #0f2e2b; --ext: #fbbf24; --ext-soft: #2e2008;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+  mark.current { background: var(--mark-current); }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+
+  header { background: var(--panel); border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; align-items: center; gap: 24px; height: 56px; }
+  .brand { font-weight: 650; font-size: 17px; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; }
+  .brand span { color: var(--muted); font-weight: 400; }
+  nav { display: flex; gap: 4px; }
+  nav a { padding: 6px 12px; border-radius: 6px; color: var(--muted); white-space: nowrap; }
+  @media (max-width: 900px) { .stats { display: none; } }
+  nav a.active { background: var(--accent-soft); color: var(--accent); }
+  nav a:hover { text-decoration: none; color: var(--text); }
+  .stats { margin-left: auto; color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .syncdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: 1px; background: var(--line); }
+  .syncdot[hidden] { display: none; }
+  .syncdot.ok { background: #16a34a; } .syncdot.syncing { background: #f59e0b; } .syncdot.error { background: #dc2626; }
+  @media (max-width: 600px) { .stats { display: none; } header .wrap { gap: 10px; } nav a { padding: 6px 8px; } }
+  @media (max-width: 420px) { .brand span { display: none; } }
+
+  .srctabs { display: flex; gap: 2px; margin-top: 22px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: thin; }
+  .srctabs a { padding: 9px 14px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-size: 14px; }
+  .srctabs a:hover { color: var(--text); text-decoration: none; }
+  .srctabs a.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .srctabs a small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .srcdesc { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+  .searchbar { padding: 14px 0 18px; }
+  .searchbar form { display: flex; gap: 8px; }
+  .searchbar input[type=search] { flex: 1; min-width: 0; font-size: 18px; padding: 12px 16px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel); outline: none; }
+  .searchbar input[type=search]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .searchbar button[type=submit] { padding: 0 20px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  @media (prefers-color-scheme: dark) { .searchbar button[type=submit], .btn { color: #0b1220 !important; } .btn.subtle { color: var(--muted) !important; } }
+  .searchopts { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .hint code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  .layout { display: grid; grid-template-columns: 250px 1fr; gap: 28px; align-items: start; padding-bottom: 60px; }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; gap: 12px; } }
+  aside.filters { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
+  @media (max-width: 820px) { aside.filters { position: static; max-height: none; } }
+  .filters summary { display: none; }
+  @media (max-width: 820px) {
+    .filters summary { display: list-item; cursor: pointer; font-weight: 600; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .filters details[open] summary { margin-bottom: 10px; }
+  }
+  .filters label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 4px; }
+  .filters label:first-of-type { margin-top: 0; }
+  .filters select { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+  .filters .clear { margin-top: 14px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font-size: 13px; }
+
+  .summary-line { color: var(--muted); font-size: 14px; margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+  .summary-line select { padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-size: 13px; }
+  .semstate { font-size: 13px; color: var(--muted); }
+  .semstate.err { color: #b91c1c; }
+  .result { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .result h3 { margin: 0 0 4px; font-size: 16px; line-height: 1.35; font-weight: 600; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 2px 0; }
+  .meta > span:not(:last-child)::after { content: "·"; margin: 0 7px; color: var(--line); }
+  .meta strong { color: var(--text); font-weight: 550; }
+  .pname, .meta .pname strong { color: var(--name); }
+  .excerpt { margin: 8px 0 0; font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+  .excerpt + .excerpt { margin-top: 4px; }
+  .excerpt::before { content: "… "; color: var(--muted); }
+  .excerpt::after { content: " …"; color: var(--muted); }
+  .excerpt.sem { border-left: 2px solid var(--accent-soft); padding-left: 8px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--code); color: var(--muted); margin-left: 6px; vertical-align: 2px; font-weight: 500; }
+  .tag.ext { background: var(--ext-soft); color: var(--ext); }
+  .tag.semhit { background: var(--accent-soft); color: var(--accent); }
+  .more { display: block; margin: 16px auto; padding: 8px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
+  .empty { color: var(--muted); padding: 30px 0; }
+  .examples a { display: inline-block; margin: 4px 6px 4px 0; padding: 4px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--panel); font-size: 13px; }
+
+  .page { padding: 24px 0 70px; }
+  .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .page h1 { font-size: 26px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  .docbar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line); margin-bottom: 18px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .docbar button { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); cursor: pointer; }
+  .doc { max-width: 760px; font-size: 16px; line-height: 1.7; overflow-wrap: anywhere; }
+  .doc h2 { font-size: 19px; margin: 28px 0 8px; line-height: 1.35; }
+  .doc p { margin: 0 0 12px; }
+  .doc ul, .doc ol { margin: 0 0 12px; padding-left: 24px; }
+  .doc ul.asis { list-style: none; padding-left: 12px; }
+  .doc ul.asis li { margin-bottom: 2px; padding-left: 1.2em; text-indent: -1.2em; }
+  .doc pre { background: var(--code); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 0 0 12px; white-space: pre; }
+  .infobox { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin: 12px 0 18px; font-size: 14px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; max-width: 760px; }
+  .infobox dt { color: var(--muted); }
+  .infobox dd { margin: 0; overflow-wrap: anywhere; }
+  .notice { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 10px; margin: 0 0 16px; max-width: 760px; }
+  .passage { max-width: 760px; background: var(--accent-soft); border-radius: 8px; padding: 10px 14px; margin: 0 0 18px; font-size: 14px; }
+  .passage strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); margin-bottom: 2px; }
+  .extnotice { max-width: 760px; background: var(--ext-soft); border: 1px solid var(--ext); border-radius: 10px; padding: 14px 16px; margin: 12px 0 18px; }
+  .extnotice p { margin: 0 0 10px; }
+  .extnotice .url { font-size: 13px; overflow-wrap: anywhere; color: var(--muted); }
+
+  .browse-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .browse-head input { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: var(--panel); padding: 7px 12px; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); }
+  .seg.small button { padding: 3px 10px; font-size: 13px; }
+  details.group { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+  details.group summary { cursor: pointer; padding: 11px 16px; font-weight: 600; display: flex; justify-content: space-between; gap: 12px; }
+  details.group summary span { color: var(--muted); font-weight: 400; font-size: 13px; white-space: nowrap; }
+  .cand-list { list-style: none; margin: 0; padding: 0 16px 10px; columns: 2 260px; column-gap: 24px; }
+  .cand-list li { padding: 3px 0; break-inside: avoid; font-size: 14px; }
+  .cand-list li small { color: var(--muted); }
+  .doclist { list-style: none; padding: 0; margin: 0; max-width: 860px; }
+  .doclist li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .doclist .meta { margin-top: 2px; }
+  .count { font-size: 12px; color: var(--muted); }
+  nav a.active .count { color: var(--accent); }
+  .person-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .person-head h1, .person-head h3 { flex: 1; min-width: 0; }
+  .actions { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+  .star, .tagbtn { flex: none; border: 1px solid var(--line); background: var(--panel); border-radius: 99px; padding: 3px 11px; font-size: 13px; cursor: pointer; color: var(--muted); white-space: nowrap; }
+  .star.on { border-color: #d97706; color: #b45309; background: #fffbeb; }
+  .tagbtn:hover, .star:hover { color: var(--text); }
+  .rtags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .rtags:empty { display: none; }
+  .rtagrow { margin-top: 8px; }
+  .rtag { font-size: 12px; padding: 1px 9px; border-radius: 99px; background: var(--role-soft); color: var(--role); font-weight: 550; white-space: nowrap; }
+  .fit { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 99px; vertical-align: 3px; margin-left: 4px; background: var(--code); color: var(--muted); letter-spacing: 0; }
+  h1 .fit { font-size: 13px; vertical-align: 5px; }
+  .fit-strong { background: #dcfce7; color: #166534; }
+  .fit-medium { background: #fef3c7; color: #92400e; }
+  .fit-low { background: #fee2e2; color: #991b1b; }
+  @media (prefers-color-scheme: dark) {
+    .star.on { background: #3a2a0a; color: #fbbf24; border-color: #92400e; }
+    .fit-strong { background: #133a22; color: #86efac; } .fit-medium { background: #3a2c0a; color: #fcd34d; } .fit-low { background: #3d1515; color: #fca5a5; }
+  }
+  .reason { margin: 6px 0 0; font-size: 14px; }
+  .reason span { color: var(--muted); }
+  .cover { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 2px; }
+  .chip { font-size: 12px; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--line); }
+  .chip.yes { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .chip.no { color: var(--muted); text-decoration: line-through; }
+  .chip small { opacity: .75; }
+  .ownnote { font-size: 12px; color: var(--muted); }
+  .evidence { margin-top: 10px; padding-left: 10px; border-left: 2px solid var(--line); font-size: 14px; }
+  .evidence > a { font-weight: 550; overflow-wrap: anywhere; }
+  .evidence .excerpt { margin-top: 2px; }
+  .morelink { display: inline-block; margin-top: 10px; font-size: 13px; }
+  .doclist li.dim { opacity: .55; }
+  .doclist .excerpt { margin-top: 4px; }
+  .btn { display: inline-block; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  .btn:hover { text-decoration: none; }
+  .btn.subtle { background: var(--panel); color: var(--muted); font-weight: 400; }
+  .slnote { width: 100%; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 14px; resize: vertical; }
+  .summary-line .seg button { padding: 4px 12px; font-size: 13px; }
+  .tagfilter { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 16px; align-items: center; }
+  .tagfilter a { font-size: 13px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+  .tagfilter a.on { background: var(--role-soft); color: var(--role); border-color: transparent; font-weight: 600; }
+  .tagfilter a:hover { text-decoration: none; color: var(--text); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 8px 0; }
+  details.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin: 0 0 12px; }
+  details.panel > summary { cursor: pointer; padding: 10px 16px; font-weight: 600; font-size: 14px; }
+  details.panel > div { padding: 0 16px 14px; font-size: 14px; }
+  .panel table { border-collapse: collapse; width: 100%; max-width: 640px; }
+  .panel td { padding: 4px 6px 4px 0; vertical-align: middle; }
+  .panel input[type=text], .panel input[type=password] { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); width: 100%; }
+  .panel .grid { display: grid; grid-template-columns: max-content minmax(0, 420px); gap: 8px 12px; align-items: center; margin: 10px 0; }
+  .panel .help { color: var(--muted); font-size: 13px; margin: 8px 0; max-width: 760px; }
+  .mini { padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); cursor: pointer; font-size: 13px; }
+  .mini.danger { color: #b91c1c; }
+  .bmlist { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+
+  .tagpop { position: absolute; z-index: 20; width: 300px; max-width: calc(100vw - 16px); background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 10px 12px; font-size: 14px; }
+  .tp-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 8px; }
+  .tp-head button { border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .tp-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tp-tags button { font-size: 12px; padding: 2px 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; color: var(--muted); }
+  .tp-tags button.on { background: var(--role-soft); color: var(--role); border-color: var(--role); font-weight: 600; }
+  .tp-new { display: flex; gap: 6px; margin-top: 10px; }
+  .tp-new input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+  .tp-foot { margin-top: 8px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+
+  .gate { max-width: 520px; margin: 90px auto; text-align: center; }
+  .gate h1 { font-size: 26px; margin: 0 0 10px; }
+  .gate p { color: var(--muted); }
+  .gate .btn { margin-top: 12px; padding: 10px 22px; font-size: 15px; }
+  .pdfview { width: 100%; height: 85vh; border: 1px solid var(--line); border-radius: 8px; }
+  .loading { padding: 80px 0; text-align: center; color: var(--muted); }
+  .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 14px 16px; border-radius: 10px; margin: 30px 0; }
+  .error code { background: #fff; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="brand" href="#/">Infinity <span>Research Library</span></a>
+    <nav>
+      <a href="#/" data-nav="search">Search</a>
+      <a href="#/browse" data-nav="browse">Browse</a>
+      <a href="#/saved" data-nav="saved" title="Shortlisted candidates, bookmarked results and role tags">Saved <span class="count" id="slcount"></span><span class="syncdot" id="syncdot" hidden></span></a>
+    </nav>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+<main class="wrap" id="app"><div class="loading" id="loading">Loading archive…</div></main>
+<noscript><div class="wrap"><div class="error"><strong>JavaScript is turned off or blocked here.</strong><br>
+  This viewer/host is not running the page's script. Open the site in Chrome, Safari or Firefox.</div></div></noscript>
+<script>
+  // Show load/runtime failures on the page instead of leaving it blank.
+  window.addEventListener("error", e => {
+    const app = document.getElementById("app");
+    if (app && (typeof S === "undefined" || !S.loaded)) app.innerHTML =
+      '<div class="error"><strong>The library could not start.</strong><br>' + String(e.message || "Unknown error").replace(/[<&]/g, c => c === "<" ? "&lt;" : "&amp;") +
+      '</div>';
+  });
+</script>
+
+<script>
+"use strict";
+
+// ------------------------------------------------------------------ state
+const S = { index: null, docs: [], byId: new Map(), cands: new Map(), sources: [], loaded: false, pending: new Set(), loadError: "" };
+const LOCAL = "Locally Archived", EXTERNAL = "External Link Only";
+const FACETS = [
+  { key: "source", label: "Source", get: d => d.source, show: v => srcLabel(v), allOnly: true },
+  { key: "uni",   label: "University",       get: d => d.university || "Not listed" },
+  { key: "attr",  label: "Researcher match", get: d => d.attribution || "Not a research paper", show: v => v === "Needs Review" ? "⚠ Needs Review" : v },
+  { key: "fit",   label: "Fit rating (research team)", get: d => fitOf(S.cands.get(d.candidate)) },
+  { key: "track", label: "Research area / track", get: d => S.cands.get(d.candidate)?.track || "Not recorded" },
+  { key: "company", label: "Company / organisation", get: d => S.cands.get(d.candidate)?.company || "Not listed" },
+  { key: "cand",  label: "Researcher / author", get: d => d.candidate, show: v => S.cands.get(v)?.name || v },
+  { key: "plat",  label: "Venue / platform", get: d => d.platform || "Not recorded" },
+  { key: "type",  label: "Content type",     get: d => d.type },
+  { key: "fmt",   label: "File format",      get: d => d.fmt === "pdf" ? "PDF" : d.fmt === "md" ? "Markdown" : "Web page" },
+  { key: "avail", label: "Content availability", get: d => d.availability || LOCAL, show: v => v === EXTERNAL ? "External link only" : "Full text in library" },
+  { key: "year",  label: "Publication year", get: d => d.year ? String(d.year) : "No date" },
+  { key: "group", label: "Source group",     get: d => d.group },
+];
+const PAGE = 40;
+const $app = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const srcLabel = id => S.sources.find(s => s.id === id)?.label || id;
+const isExternal = d => (d.availability || LOCAL) === EXTERNAL;
+
+// ------------------------------------------------------------------ access: Google sign-in + encrypted data
+// The site's data files are encrypted (AES-256-GCM over gzip). The key is the SHA-256 of an access-key file kept in
+// the Google Drive archive, so only Google accounts that can open that Drive file can read the library. The same
+// sign-in lets the browser open papers straight from Google Drive with the user's own permissions.
+const CFG = { googleClientId: "", rootFolderId: "", keyFileName: "Library access key.txt", keyFileId: "", driveApiBase: "https://www.googleapis.com", dataBase: "data/" };
+const AUTH = { token: "", expires: 0, key: null, client: null };
+const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("could not load " + src)); document.head.appendChild(s); });
+}
+async function getToken(interactive) {
+  if (AUTH.token && Date.now() < AUTH.expires - 60000) return AUTH.token;
+  const saved = JSON.parse(sessionStorage.getItem("irl-token") || "null");
+  if (!interactive && saved && Date.now() < saved.expires - 60000) { Object.assign(AUTH, saved); return AUTH.token; }
+  if (!window.google?.accounts?.oauth2) await loadScript("https://accounts.google.com/gsi/client");
+  return new Promise((resolve, reject) => {
+    AUTH.client = google.accounts.oauth2.initTokenClient({
+      client_id: CFG.googleClientId, scope: SCOPE,
+      callback: r => {
+        if (r.error || !r.access_token) return reject(new Error(r.error_description || r.error || "sign-in was cancelled"));
+        AUTH.token = r.access_token; AUTH.expires = Date.now() + (r.expires_in || 3600) * 1000;
+        sessionStorage.setItem("irl-token", JSON.stringify({ token: AUTH.token, expires: AUTH.expires }));
+        resolve(AUTH.token);
+      },
+      error_callback: e => reject(new Error(e?.message || e?.type || "sign-in failed")),
+    });
+    AUTH.client.requestAccessToken({ prompt: interactive ? "select_account" : "" });
+  });
+}
+// GET a Drive file's content with the signed-in user's permissions (retries once with a fresh token)
+async function driveFile(id, asType = "arrayBuffer") {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const tok = await getToken(false);
+    const r = await fetch(`${CFG.driveApiBase}/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`, { headers: { Authorization: "Bearer " + tok } });
+    if (r.status === 401 && attempt === 0) { AUTH.token = ""; sessionStorage.removeItem("irl-token"); await getToken(true); continue; }
+    if (!r.ok) { const e = new Error(r.status === 403 || r.status === 404 ? "no-access" : `Google Drive returned HTTP ${r.status}`); e.status = r.status; throw e; }
+    return r[asType]();
+  }
+}
+// the access-key file is looked up by name in the archive folder (or given directly as keyFileId)
+async function findKeyFile() {
+  if (CFG.keyFileId) return CFG.keyFileId;
+  const tok = await getToken(false);
+  const q = `'${CFG.rootFolderId}' in parents and name = '${CFG.keyFileName.replace(/'/g, "\\'")}' and trashed = false`;
+  const r = await fetch(`${CFG.driveApiBase}/drive/v3/files?` + new URLSearchParams({ q, fields: "files(id,name)", supportsAllDrives: "true", includeItemsFromAllDrives: "true" }), { headers: { Authorization: "Bearer " + tok } });
+  if (!r.ok) { const e = new Error(`Google Drive returned HTTP ${r.status}`); e.status = r.status; throw e; }
+  const f = (await r.json()).files?.find(f => f.name === CFG.keyFileName);
+  if (!f) { const e = new Error("no-access"); e.status = 404; throw e; }
+  return (CFG.keyFileId = f.id);
+}
+async function unlock() {
+  const raw = new Uint8Array(await driveFile(await findKeyFile()));
+  const txt = new TextEncoder().encode(new TextDecoder().decode(raw).trim());
+  AUTH.key = await crypto.subtle.importKey("raw", await crypto.subtle.digest("SHA-256", txt), "AES-GCM", false, ["decrypt"]);
+}
+const DATA_CACHE = new Map();
+// fetch + decrypt + gunzip a data file -> ArrayBuffer (cached per session)
+function secure(name) {
+  if (!DATA_CACHE.has(name)) {
+    // the manifest is always revalidated; every other file is versioned by the build, so updates are picked up at once
+    const url = CFG.dataBase + name + (name === "manifest.enc" ? "" : "?v=" + encodeURIComponent(S.index?.built || ""));
+    const p = fetch(url, name === "manifest.enc" ? { cache: "no-cache" } : {}).then(r => { if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`); return r.arrayBuffer(); })
+      .then(async buf => {
+        const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(buf, 0, 12) }, AUTH.key, new Uint8Array(buf, 12));
+        return new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+      })
+      .catch(e => { DATA_CACHE.delete(name); throw e; });
+    DATA_CACHE.set(name, p);
+  }
+  return DATA_CACHE.get(name);
+}
+const secureJSON = name => secure(name).then(b => JSON.parse(new TextDecoder().decode(b)));
+// packed files: uint32 header length, JSON header, binary payload (copied so typed arrays are aligned)
+async function securePack(name) {
+  const buf = await secure(name);
+  const hl = new DataView(buf).getUint32(0, true);
+  return { header: JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hl))), payload: buf.slice(4 + hl) };
+}
+
+function gate(message, error) {
+  $app.innerHTML = `<div class="gate">
+    <h1>Infinity Research Library</h1>
+    <p>The library is private. Sign in with the Google account that has access to the research archive on Google Drive.</p>
+    ${error ? `<p class="error">${esc(error)}</p>` : ""}
+    <button class="btn" id="signin">${esc(message || "Sign in with Google")}</button>
+  </div>`;
+  document.getElementById("signin").onclick = () => start(true);
+}
+
+async function start(interactive) {
+  try {
+    if (!CFG.loaded) {
+      const c = await fetch("config.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+      Object.assign(CFG, c, { loaded: true });
+    }
+    if (!CFG.googleClientId || !(CFG.keyFileId || CFG.rootFolderId)) {
+      $app.innerHTML = `<div class="error"><strong>The library is not configured yet.</strong><br>config.json needs <code>googleClientId</code> and <code>rootFolderId</code>. See README.md (Deployment).</div>`;
+      return;
+    }
+    if (!interactive && !sessionStorage.getItem("irl-token")) return gate();
+    $app.innerHTML = `<div class="loading" id="loading">Signing in…</div>`;
+    await getToken(interactive);
+    await unlock();
+    await load();
+  } catch (e) {
+    console.error(e);
+    if (e.status === 403 || e.status === 404 || e.message === "no-access")
+      return gate("Try another Google account", "This Google account does not have access to the research archive. Ask the archive owner to share the Google Drive folder with you.");
+    gate("Sign in with Google", e.message);
+  }
+}
+
+// ------------------------------------------------------------------ loading
+async function load() {
+  const l = () => document.getElementById("loading");
+  if (l()) l().textContent = "Loading the library…";
+  const idx = await secureJSON("manifest.enc");
+  S.index = idx; S.sources = idx.sources;
+  STOP = new Set(idx.semantic.stopwords);
+  S.groupSource = new Map(S.sources.flatMap(s => s.groups.map(g => [g, s.id])));
+  const cands = await secureJSON("candidates.enc");
+  idx.candidates = cands;
+  cands.forEach(c => S.cands.set(c.id, c));
+  let done = 0;
+  const parts = await Promise.all(idx.metaFiles.map(f => secureJSON(f + ".enc").then(j => { done++; if (l()) l().textContent = `Loading the library… ${done}/${idx.metaFiles.length}`; return j; })));
+  for (const d of parts.flat()) {
+    d.hay = [d.title, d.name, d.authors || "", d.snippet || ""].join("\n");   // for highlighting in result lists
+    if (!d.source) d.source = S.groupSource.get(d.group) || "other";
+    S.docs[d.i] = d;
+    S.byId.set(d.id, d);
+  }
+  S.loaded = true;
+  updateStats();
+  route();
+  SYNC.start();
+}
+function updateStats() {
+  const st = S.index.stats || {};
+  document.getElementById("stats").textContent =
+    `${S.docs.length.toLocaleString()} documents · ${S.index.candidates.length.toLocaleString()} researchers & candidates`;
+  document.getElementById("stats").title = `Index built ${S.index.built}. Papers: ${(st.papersFullText || 0).toLocaleString()} full text, ${(st.papersExternal || 0).toLocaleString()} external link only, ${(st.needsReview || 0).toLocaleString()} need review.`;
+}
+// re-render the current page (after background data arrives) without disturbing what the user is typing
+function rerender() {
+  if (!S.loaded || POP) return;
+  const box = document.getElementById("q"), typed = box?.value, focused = document.activeElement === box;
+  const sel = focused ? [box.selectionStart, box.selectionEnd] : null, y = scrollY;
+  route();
+  const nb = document.getElementById("q");
+  if (nb && typed !== undefined) { nb.value = typed; if (focused) { nb.focus(); nb.setSelectionRange(...sel); } }
+  scrollTo(0, y);
+}
+const pendingNote = () => "";
+
+// ------------------------------------------------------------------ query parsing
+// Syntax: words are ANDed; "exact phrase"; OR between alternatives; -word or NOT word excludes; word* = prefix.
+function parseQuery(q) {
+  const tokens = [];
+  const re = /(-?)"([^"]*)"?|(\S+)/g;
+  let m;
+  while ((m = re.exec(q))) {
+    if (m[2] !== undefined) { if (m[2].trim()) tokens.push({ text: m[2].trim(), phrase: true, neg: m[1] === "-" }); }
+    else {
+      let t = m[3];
+      if (t === "OR" || t === "|" || t === "||") { tokens.push({ op: "OR" }); continue; }
+      if (t === "AND" || t === "&&") continue;
+      if (t === "NOT") { tokens.push({ op: "NOT" }); continue; }
+      let neg = false;
+      if (t.length > 1 && t[0] === "-") { neg = true; t = t.slice(1); }
+      t = t.replace(/^[(),;:!?]+|[(),;:!?]+$/g, "");
+      if (t) tokens.push({ text: t, phrase: false, neg });
+    }
+  }
+  const groups = [[]];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.op === "OR") { if (groups[groups.length - 1].length) groups.push([]); continue; }
+    if (t.op === "NOT") { if (tokens[i + 1] && !tokens[i + 1].op) tokens[i + 1].neg = true; continue; }
+    t.re = termRegex(t.text);
+    groups[groups.length - 1].push(t);
+  }
+  return groups.filter(g => g.some(t => !t.neg));
+}
+const WORD = "[\\p{L}\\p{N}_]";
+const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+function termRegex(text) {
+  let prefix = false;
+  if (text.length > 1 && text.endsWith("*")) { prefix = true; text = text.slice(0, -1); }
+  const body = text.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+");
+  const cjk = CJK.test(text);
+  const head = !cjk && /^[\p{L}\p{N}_]/u.test(text) ? `(?<!${WORD})` : "";
+  const tail = prefix ? `${WORD}*` : !cjk && /[\p{L}\p{N}_]$/u.test(text) ? `(?!${WORD})` : "";
+  return new RegExp(head + body + tail, "giu");
+}
+
+// ------------------------------------------------------------------ full-text keyword index
+// Built by tools/build_index.py from the complete text of every document. Postings for a word live in the shard
+// fnv1a(word) % postShards; a query downloads only the shards of its words.
+let STOP = new Set();
+function stem(w) {
+  if (w.length > 4 && w.endsWith("ies")) return w.slice(0, -3) + "y";
+  if (w.length > 3 && w.endsWith("s") && !/(ss|us|is)$/.test(w)) return w.slice(0, -1);
+  return w;
+}
+// must match libcore.index_tokens
+function indexTokens(text) {
+  const out = [];
+  for (const w0 of text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []) {
+    if (w0.length < 2 || w0.length > 40 || STOP.has(w0)) continue;
+    const w = stem(w0);
+    if (!STOP.has(w)) out.push(w);
+  }
+  return out;
+}
+function fnv1a(s) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(s)) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  return h;
+}
+const POST = new Map();
+async function postingShard(k) {
+  if (!POST.has(k)) POST.set(k, securePack(`post-${String(k).padStart(4, "0")}.enc`).then(({ header, payload }) => {
+    const bytes = new Uint8Array(payload), map = new Map();
+    let pos = 0;
+    header.terms.forEach((t, j) => { const n = header.n[j], start = pos; for (let c = 0; c < 2 * n; c++) { while (bytes[pos++] & 0x80); } map.set(t, [start, n]); });
+    return { bytes, map };
+  }));
+  return POST.get(k);
+}
+// postings of one indexed word -> Map(docIndex -> tf)
+async function postings(term) {
+  const sh = await postingShard(fnv1a(term) % S.index.postShards);
+  const e = sh.map.get(term), out = new Map();
+  if (!e) return out;
+  let [pos, n] = e, doc = -1;
+  const rd = () => { let v = 0, s = 0, b; do { b = sh.bytes[pos++]; v |= (b & 0x7f) << s; s += 7; } while (b & 0x80); return v; };
+  for (let c = 0; c < n; c++) { doc += rd() + 1; out.set(doc, rd()); }
+  return out;
+}
+const VOCAB = new Map();
+async function prefixTerms(prefix) {
+  const k = prefix.length >= 2 && /^[\x00-\x7f]{2}/.test(prefix) ? prefix.slice(0, 2) : prefix.slice(0, 1);
+  const v = fnv1a(k) % S.index.vocabShards;
+  if (!VOCAB.has(v)) VOCAB.set(v, secureJSON(`vocab-${String(v).padStart(3, "0")}.enc`));
+  return ((await VOCAB.get(v))[k] || []).filter(([t]) => t.startsWith(prefix)).slice(0, 60).map(([t]) => t);
+}
+// BM25 over one query term (possibly several words / a prefix): Map(doc -> score) of docs containing all its words
+async function termScores(t) {
+  let text = t.text, prefix = false;
+  if (text.length > 1 && text.endsWith("*")) { prefix = true; text = text.slice(0, -1); }
+  const raw = (text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+  let words = indexTokens(text);
+  if (prefix && raw.length) {
+    const last = raw[raw.length - 1];
+    const exp = last.length >= 2 ? await prefixTerms(last) : [];
+    words = indexTokens(raw.slice(0, -1).join(" "));
+    words.push(exp.length ? exp : [stem(last)]);
+  }
+  if (!words.length) return null;      // only stopwords: ignore this term
+  const N = S.docs.length, avg = S.index.avgLen || 1;
+  let acc = null;
+  for (const w of words) {
+    const alts = Array.isArray(w) ? w : [w];
+    const m = new Map();
+    for (const a of alts) {
+      const p = await postings(a);
+      const idf = Math.log(1 + (N - p.size + 0.5) / (p.size + 0.5));
+      for (const [doc, tf] of p) {
+        const len = S.docs[doc]?.len || avg;
+        m.set(doc, (m.get(doc) || 0) + idf * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * len / avg)) + (t.phrase ? 0.3 : 0));
+      }
+    }
+    if (acc === null) acc = m;
+    else { const nx = new Map(); for (const [d, s] of acc) if (m.has(d)) nx.set(d, s + m.get(d)); acc = nx; }
+  }
+  return acc;
+}
+// whole query -> { scores: Map(doc -> score), cover: Map(termText -> Set(doc)) }
+async function keywordSearch(groups) {
+  const scores = new Map(), cover = new Map(), cache = new Map(), neg = new Set();
+  const ts = async t => { if (!cache.has(t.text)) cache.set(t.text, await termScores(t)); return cache.get(t.text); };
+  for (const g of groups) {
+    let acc = null;
+    for (const t of g.filter(t => !t.neg)) {
+      const m = await ts(t);
+      if (m === null) continue;
+      if (!cover.has(t.text)) cover.set(t.text, new Set(m.keys()));
+      if (acc === null) acc = new Map(m);
+      else { const nx = new Map(); for (const [d, s] of acc) if (m.has(d)) nx.set(d, s + m.get(d)); acc = nx; }
+    }
+    if (!acc) continue;
+    for (const t of g.filter(t => t.neg)) { const m = await ts(t); if (m) for (const d of m.keys()) { acc.delete(d); neg.add(d); } }
+    for (const [d, s] of acc) scores.set(d, Math.max(scores.get(d) || 0, s));
+  }
+  return { scores, cover, neg };
+}
+
+// ------------------------------------------------------------------ meaning search (one LSA vector per document)
+const SEM = { files: new Map(), results: new Map(), stats: { termShards: new Set(), docShards: new Set(), bytes: 0 } };
+window.IRL_SEM = SEM;
+function semEnabled() { return true; }
+function semTokenize(text) {
+  const out = [];
+  for (const w0 of text.toLowerCase().match(/[a-z0-9]+/g) || []) {
+    if (w0.length < 2 || /^[0-9]+$/.test(w0) || STOP.has(w0)) continue;
+    const w = stem(w0);
+    if (!STOP.has(w)) out.push(w);
+  }
+  return out;
+}
+function semShard(name, kind) {
+  if (!SEM.files.has(name)) SEM.files.set(name, securePack(name + ".enc").then(({ header, payload }) => {
+    const dim = S.index.semantic.dim, n = kind === "terms" ? header.terms.length : header.docs.length;
+    SEM.stats[kind === "terms" ? "termShards" : "docShards"].add(name); SEM.stats.bytes += payload.byteLength;
+    const sh = { header, n, scales: new Float32Array(payload, 0, n), q: new Int8Array(payload, n * 4, n * dim) };
+    if (kind === "terms") sh.index = new Map(header.terms.map((t, i) => [t, i]));
+    return sh;
+  }).catch(e => { SEM.files.delete(name); throw e; }));
+  return SEM.files.get(name);
+}
+async function semEmbedQuery(text) {
+  const sem = S.index.semantic, dim = sem.dim, counts = new Map();
+  for (const t of semTokenize(text)) counts.set(t, (counts.get(t) || 0) + 1);
+  const byShard = new Map();
+  for (const t of counts.keys()) { const k = fnv1a(t) % sem.termShards; if (!byShard.has(k)) byShard.set(k, []); byShard.get(k).push(t); }
+  const vec = new Float32Array(dim), known = [], unknown = [];
+  await Promise.all([...byShard].map(async ([k, terms]) => {
+    const sh = await semShard("terms-" + String(k).padStart(2, "0"), "terms");
+    for (const t of terms) {
+      const i = sh.index.get(t);
+      if (i === undefined) { unknown.push(t); continue; }
+      known.push(t);
+      const w = (1 + Math.log(counts.get(t))) * sh.header.idf[i] * sh.scales[i], off = i * dim;
+      for (let j = 0; j < dim; j++) vec[j] += w * sh.q[off + j];
+    }
+  }));
+  let norm = 0; for (let j = 0; j < dim; j++) norm += vec[j] * vec[j];
+  norm = Math.sqrt(norm);
+  if (norm) for (let j = 0; j < dim; j++) vec[j] /= norm;
+  return { vec: norm ? vec : null, known, unknown };
+}
+async function semSearch(text, src) {
+  const sem = S.index.semantic, dim = sem.dim;
+  const shards = sem.docShards.filter(s => src === "all" || s.source === src);
+  const [{ vec, known, unknown }, loaded] = await Promise.all([semEmbedQuery(text), Promise.all(shards.map(s => semShard(s.name, "docs")))]);
+  const hits = [];
+  if (vec) for (const sh of loaded) for (let r = 0; r < sh.n; r++) {
+    let dot = 0; const off = r * dim;
+    for (let j = 0; j < dim; j++) dot += sh.q[off + j] * vec[j];
+    const d = S.docs[sh.header.docs[r]];
+    if (d) hits.push({ id: d.id, score: dot * sh.scales[r] });
+  }
+  hits.sort((a, b) => b.score - a.score);
+  return { hits, known, unknown, shards: shards.length, total: sem.docShards.length };
+}
+function semText(groups) { return groups.flat().filter(t => !t.neg).map(t => t.text.replace(/\*$/, "")).join(" "); }
+
+// both engines, cached per query; the search page re-renders when results arrive
+const KW = new Map();
+function cachedSearch(store, key, fn, params) {
+  if (!store.has(key)) {
+    store.set(key, { pending: true });
+    const hash = location.hash;
+    fn().then(r => store.set(key, r)).catch(e => { console.error(e); store.set(key, { error: e.message }); })
+      .then(() => { if (location.hash === hash) rerender(); });
+  }
+  return store.get(key);
+}
+
+// ------------------------------------------------------------------ highlighting
+function positiveRegexes(groups) { return groups.flat().filter(t => !t.neg).map(t => t.re); }
+function matchRanges(text, regs) {
+  const r = [];
+  for (const re of regs) {
+    re.lastIndex = 0; let m;
+    while ((m = re.exec(text))) { if (!m[0].length) { re.lastIndex++; continue; } r.push([m.index, m.index + m[0].length]); }
+  }
+  r.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const out = [];
+  for (const x of r) { const last = out[out.length - 1]; if (last && x[0] <= last[1]) last[1] = Math.max(last[1], x[1]); else out.push(x.slice()); }
+  return out;
+}
+function highlight(text, regs, from = 0, to = (text || "").length) {
+  text = text || "";
+  if (!regs.length) return esc(text.slice(from, to));
+  let html = "", pos = from;
+  for (const [a, b] of matchRanges(text, regs)) {
+    if (b <= from || a >= to) continue;
+    const s = Math.max(a, from), e = Math.min(b, to);
+    html += esc(text.slice(pos, s)) + "<mark>" + esc(text.slice(s, e)) + "</mark>";
+    pos = e;
+  }
+  return html + esc(text.slice(pos, to));
+}
+// result lists show the stored snippet (abstract / opening); the full text is opened from Google Drive
+function excerptHtml(d, regs) {
+  if (isExternal(d)) return `<p class="excerpt">${esc(externalLine(d))}</p>`;
+  return d.snippet ? `<p class="excerpt">${highlight(d.snippet, regs)}</p>` : "";
+}
+function externalLine(d) {
+  const c = S.cands.get(d.candidate);
+  return `Hosted externally at ${d.url || "the original publisher"}${c?.relevance ? ". Research team: " + c.relevance : ""}`;
+}
+
+// ------------------------------------------------------------------ opening documents
+// Papers: the archive file is fetched from Google Drive when opened (Markdown is rendered, PDFs are shown inline).
+// Blog documents: their text ships with the site (encrypted).
+const DOCTEXT = new Map();
+function parseArchiveMd(text) {
+  const i = text.indexOf("\n---\n");
+  let rest = i >= 0 ? text.slice(i + 5) : text;
+  const m = rest.match(/^## Full publication text\s*$/m);
+  if (m) rest = rest.slice(m.index + m[0].length);
+  return rest.replace(/^\s*> Extracted verbatim[^\n]*\n/, "");
+}
+function cleanInline(s) { return s.replace(/\*\*/g, "").replace(/(^|[^\w*\\])\*(\S[^*\n]*?)\*(?![\w*])/g, "$1$2").replace(/<!--.*?-->/g, "").trim(); }
+function mdToBlocks(body) {
+  const blocks = [], para = [], lines = body.split("\n");
+  const flush = () => { if (para.length) { const t = cleanInline(para.map(x => x.trim()).join(" ")); if (t) blocks.push(["p", t]); para.length = 0; } };
+  for (let i = 0; i < lines.length; i++) {
+    const s = lines[i].trim();
+    if (s.startsWith("```")) { flush(); const code = []; while (++i < lines.length && !lines[i].trim().startsWith("```")) code.push(lines[i]); if (code.some(c => c.trim())) blocks.push(["pre", code.join("\n").trimEnd()]); continue; }
+    if (s === "$$") { flush(); const mth = []; while (++i < lines.length && lines[i].trim() !== "$$") mth.push(lines[i]); if (mth.some(c => c.trim())) blocks.push(["pre", mth.join("\n").trim()]); continue; }
+    if (s.startsWith("|")) { flush(); const rows = []; while (i < lines.length && lines[i].trim().startsWith("|")) { const r = lines[i].trim(); if (!/^\|[\s:|-]+\|$/.test(r)) rows.push(r); i++; } i--; if (rows.length) blocks.push(["pre", rows.join("\n")]); continue; }
+    const h = s.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { flush(); const t = cleanInline(h[2]); if (t) blocks.push(["h", t]); }
+    else if (!s || /^<!--.*-->$/.test(s)) flush();
+    else if (s.startsWith("- ") || /^\d+[.)]\s/.test(s)) { flush(); para.push(s); flush(); }
+    else para.push(s.startsWith(">") ? s.replace(/^>\s?/, "") : s);
+  }
+  flush();
+  return blocks;
+}
+function docContent(d) {
+  if (!DOCTEXT.has(d.id)) {
+    let p;
+    if (d.drive && d.fmt === "pdf") p = driveFile(d.drive, "blob").then(b => ({ pdf: URL.createObjectURL(new Blob([b], { type: "application/pdf" })) }));
+    else if (d.drive) p = driveFile(d.drive, "text").then(t => ({ blocks: mdToBlocks(parseArchiveMd(t)) }));
+    else p = secureJSON((S.index.blogText[d.id] || "") + ".enc").then(j => ({ blocks: j[d.id] || [] }));
+    DOCTEXT.set(d.id, p.catch(e => { DOCTEXT.delete(d.id); throw e; }));
+  }
+  return DOCTEXT.get(d.id);
+}
+
+// ------------------------------------------------------------------ routing
+function parseHash() {
+  const h = location.hash.slice(1) || "/";
+  const [path, qs] = h.split("?");
+  return { parts: path.split("/").filter(Boolean).map(decodeURIComponent), params: new URLSearchParams(qs || "") };
+}
+function go(path, params) {
+  const qs = params ? new URLSearchParams([...params].filter(([, v]) => v)).toString() : "";
+  location.hash = path + (qs ? "?" + qs : "");
+}
+window.addEventListener("hashchange", () => { closeTagPop(true); route(); });
+
+function route() {
+  if (!S.loaded) return;
+  const { parts, params } = parseHash();
+  let view = parts[0] || "search";
+  if (view === "shortlist") view = "saved";
+  document.querySelectorAll("nav a").forEach(a =>
+    a.classList.toggle("active", a.dataset.nav === (view === "browse" || view === "candidate" ? "browse" : view === "saved" ? "saved" : view === "doc" ? "" : "search")));
+  updateNavCount();
+  if (view === "doc") return renderDoc(parts[1], params);
+  if (view === "candidate") return renderCandidate(parts[1], params);
+  if (view === "browse") return renderBrowse(params);
+  if (view === "saved") return renderSaved(params);
+  return renderSearch(params);
+}
+
+// ------------------------------------------------------------------ saved items: shortlist, bookmarks, role tags
+// Everything is kept in one small JSON document:
+//   items: { "c:<candidate id>" | "d:<document id>": { saved, tags[], note, t (last change, ms), by } }
+//   tags:  { "<role tag>": { t, del } }
+// It lives in this browser's localStorage and, when team sync is set up, in a JSON file in a GitHub repository.
+// Merging is per item: the most recent change to an item wins.
+const DEFAULT_TAGS = ["CEO", "COO", "CTO", "CFO", "GTM", "Research Scientist", "Research Engineer", "Social Media Writer"];
+const STORE = (() => {
+  const KEY = "irl-saved-v2", LEGACY = "irl-shortlist-v1";
+  let data = { v: 2, items: {}, tags: {} };
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) data = Object.assign(data, JSON.parse(raw));
+    else {
+      const old = JSON.parse(localStorage.getItem(LEGACY) || "null");   // shortlist from the previous version
+      if (old?.ids) for (const id of old.ids) data.items["c:" + id] = { saved: true, tags: [], note: old.notes?.[id] || "", t: Date.now(), by: "" };
+    }
+  } catch (e) {}
+  for (const t of DEFAULT_TAGS) if (!data.tags[t]) data.tags[t] = { t: 0 };
+  const listeners = [];
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+  const changed = (keys, remote) => { persist(); listeners.forEach(f => f(keys, remote)); };
+  const touch = (key, fn) => {
+    const it = data.items[key] || { saved: false, tags: [], note: "", t: 0, by: "" };
+    fn(it); it.t = Math.max(Date.now(), it.t + 1); it.by = SYNC.name();
+    data.items[key] = it;
+  };
+  const cleanTag = t => String(t || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  return {
+    key: (kind, id) => kind + ":" + id,
+    get: key => data.items[key],
+    isSaved: key => !!data.items[key]?.saved,
+    tagsOf: key => data.items[key]?.saved ? data.items[key].tags : [],
+    note: key => data.items[key]?.note || "",
+    setSaved(key, on) { touch(key, it => { it.saved = on; }); changed([key]); },
+    toggleSaved(key) { this.setSaved(key, !this.isSaved(key)); },
+    toggleTag(key, tag) {
+      tag = cleanTag(tag); if (!tag) return;
+      touch(key, it => {
+        const had = it.saved && it.tags.includes(tag);
+        if (!it.saved) it.tags = [];          // tags of a removed item are cleared when it is saved again
+        it.tags = had ? it.tags.filter(x => x !== tag) : [...it.tags, tag];
+        it.saved = true;                       // tagging a result also saves it
+      });
+      if (!data.tags[tag] || data.tags[tag].del) data.tags[tag] = { t: Date.now() };
+      changed([key]);
+    },
+    setNote(key, note) { touch(key, it => { it.note = note; }); persist(); SYNC.schedule(); },
+    addTag(tag) { tag = cleanTag(tag); if (tag && (!data.tags[tag] || data.tags[tag].del)) { data.tags[tag] = { t: Date.now() }; changed([]); } return tag; },
+    allTags() {
+      const live = Object.entries(data.tags).filter(([, v]) => !v.del).map(([k]) => k);
+      for (const it of Object.values(data.items)) if (it.saved) for (const t of it.tags) if (!live.includes(t)) live.push(t);
+      const rank = t => { const i = DEFAULT_TAGS.indexOf(t); return i < 0 ? 99 : i; };
+      return live.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    },
+    renameTag(from, to) {
+      to = cleanTag(to); if (!to || to === from) return;
+      const keys = [];
+      for (const [k, it] of Object.entries(data.items)) if (it.tags.includes(from)) {
+        keys.push(k); touch(k, x => { x.tags = [...new Set(x.tags.map(t => t === from ? to : t))]; });
+      }
+      data.tags[from] = { t: Date.now(), del: true }; data.tags[to] = { t: Date.now() };
+      changed(keys);
+    },
+    deleteTag(tag) {
+      const keys = [];
+      for (const [k, it] of Object.entries(data.items)) if (it.tags.includes(tag)) { keys.push(k); touch(k, x => { x.tags = x.tags.filter(t => t !== tag); }); }
+      data.tags[tag] = { t: Date.now(), del: true };
+      changed(keys);
+    },
+    list(kind) {
+      return Object.entries(data.items).filter(([k, it]) => it.saved && k.startsWith(kind + ":"))
+        .map(([k, it]) => ({ key: k, id: k.slice(kind.length + 1), ...it }));
+    },
+    clearKind(kind) { const keys = this.list(kind).map(x => x.key); keys.forEach(k => touch(k, it => { it.saved = false; })); changed(keys); },
+    snapshot: () => JSON.parse(JSON.stringify(data)),
+    // merge another copy (from the team file or an imported backup); returns the keys that changed here
+    merge(other) {
+      if (!other || typeof other !== "object") return [];
+      const keys = [];
+      for (const [k, it] of Object.entries(other.items || {})) {
+        const mine = data.items[k];
+        if (!mine || (it.t || 0) > (mine.t || 0)) { data.items[k] = { saved: !!it.saved, tags: [...(it.tags || [])], note: it.note || "", t: it.t || 0, by: it.by || "" }; keys.push(k); }
+      }
+      let tagsChanged = false;
+      for (const [k, v] of Object.entries(other.tags || {})) {
+        if (!data.tags[k] || (v.t || 0) > (data.tags[k].t || 0)) { data.tags[k] = { t: v.t || 0, ...(v.del ? { del: true } : {}) }; tagsChanged = true; }
+      }
+      if (keys.length || tagsChanged) changed(keys, true);
+      return keys;
+    },
+    onChange(f) { listeners.push(f); },
+  };
+})();
+
+STORE.onChange((keys, remote) => {
+  updateNavCount();
+  refreshItemViews(keys);
+  if (!remote) SYNC.schedule();
+  // keep the Saved page current when another team member's changes arrive
+  if (remote && parseHash().parts[0] === "saved" && !POP && !document.activeElement?.matches("input, textarea")) route();
+});
+
+function updateNavCount() {
+  const el = document.getElementById("slcount");
+  if (el) el.textContent = S.loaded ? (STORE.list("c").filter(x => S.cands.has(x.id)).length + STORE.list("d").filter(x => S.byId.has(x.id)).length) || "" : "";
+}
+function saveBtn(key) {
+  const on = STORE.isSaved(key), cand = key.startsWith("c:");
+  const label = cand ? (on ? "★ Shortlisted" : "☆ Shortlist") : (on ? "🔖 Bookmarked" : "Bookmark");
+  const title = cand ? (on ? "Remove from shortlist" : "Add this candidate to the shortlist") : (on ? "Remove bookmark" : "Bookmark this result");
+  return `<button class="star${on ? " on" : ""}" data-save="${esc(key)}" aria-pressed="${on}" title="${title}">${label}</button>`;
+}
+function tagChips(key) { return STORE.tagsOf(key).map(t => `<span class="rtag">${esc(t)}</span>`).join(""); }
+function actions(key) {
+  return `<div class="actions">${saveBtn(key)}<button class="tagbtn" data-tagbtn="${esc(key)}" title="Assign role tags">🏷 Role tags</button></div>`;
+}
+function tagRow(key) { return `<div class="rtagrow"><span class="rtags" data-rtags="${esc(key)}">${tagChips(key)}</span></div>`; }
+function refreshItemViews(keys) {
+  const all = !keys || !keys.length ? null : new Set(keys);
+  document.querySelectorAll("[data-save]").forEach(b => { if (!all || all.has(b.dataset.save)) b.outerHTML = saveBtn(b.dataset.save); });
+  document.querySelectorAll("[data-rtags]").forEach(el => { if (!all || all.has(el.dataset.rtags)) el.innerHTML = tagChips(el.dataset.rtags); });
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-save]");
+  if (b) {
+    e.preventDefault();
+    STORE.toggleSaved(b.dataset.save);
+    if (parseHash().parts[0] === "saved") route();
+    return;
+  }
+  const t = e.target.closest("[data-tagbtn]");
+  if (t) { e.preventDefault(); if (POP && POP.key === t.dataset.tagbtn) closeTagPop(); else openTagPop(t, t.dataset.tagbtn); return; }
+  if (POP && e.target.isConnected && !e.target.closest(".tagpop")) closeTagPop();   // detached = the picker just re-rendered itself
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && POP) closeTagPop(); });
+
+// role-tag picker
+let POP = null;
+function openTagPop(btn, key) {
+  closeTagPop(true);
+  const el = document.createElement("div");
+  el.className = "tagpop"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Role tags");
+  document.body.appendChild(el);
+  POP = { key, el, btn };
+  renderTagPop();
+  const r = btn.getBoundingClientRect();
+  el.style.top = (scrollY + r.bottom + 6) + "px";
+  el.style.left = Math.max(8, Math.min(scrollX + r.right - el.offsetWidth, scrollX + document.documentElement.clientWidth - el.offsetWidth - 8)) + "px";
+  el.querySelector("input").focus();
+}
+function renderTagPop() {
+  const { key, el } = POP;
+  const mine = new Set(STORE.tagsOf(key));
+  const kind = key.startsWith("c:") ? "candidate" : "result";
+  el.innerHTML = `<div class="tp-head"><span>Role tags for this ${kind}</span><button data-tpclose aria-label="Close">×</button></div>
+    <div class="tp-tags">${STORE.allTags().map(t => `<button data-tptoggle="${esc(t)}" class="${mine.has(t) ? "on" : ""}" aria-pressed="${mine.has(t)}">${mine.has(t) ? "✓ " : ""}${esc(t)}</button>`).join("")}</div>
+    <form class="tp-new"><input placeholder="New role tag, e.g. Head of Kernels" maxlength="40" aria-label="New role tag"><button class="mini" type="submit">Add</button></form>
+    <div class="tp-foot"><span>${STORE.isSaved(key) ? (key.startsWith("c:") ? "On the shortlist" : "Bookmarked") : "Tagging also " + (key.startsWith("c:") ? "shortlists" : "bookmarks") + " it"}</span><a href="#/saved?manage=1">Rename / delete tags</a></div>`;
+  el.querySelector("[data-tpclose]").onclick = () => closeTagPop();
+  el.querySelectorAll("[data-tptoggle]").forEach(b => b.onclick = () => { STORE.toggleTag(key, b.dataset.tptoggle); renderTagPop(); });
+  el.querySelector("form").onsubmit = ev => {
+    ev.preventDefault();
+    const v = el.querySelector("input").value;
+    const tag = STORE.addTag(v);
+    if (tag && !STORE.tagsOf(key).includes(tag)) STORE.toggleTag(key, tag);
+    renderTagPop(); el.querySelector("input").focus();
+  };
+}
+function closeTagPop(silent) {
+  if (!POP) return;
+  POP.el.remove(); POP = null;
+  if (!silent && parseHash().parts[0] === "saved") route();
+}
+
+// ------------------------------------------------------------------ team sync through a GitHub repository (optional)
+// Each person enters a fine-grained GitHub token once (stored only in their browser). The shared file is read and
+// written with the GitHub contents API; conflicting writes are detected with the file's sha and merged per item.
+const SYNC = (() => {
+  const KEY = "irl-sync-v1";
+  let cfg = null;
+  try { cfg = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) {}
+  const st = { status: cfg ? "idle" : "off", msg: "", last: null };
+  let sha = null, timer = null, busy = false, again = false, started = false;
+  const url = () => `https://api.github.com/repos/${cfg.repo}/contents/${cfg.path.split("/").map(encodeURIComponent).join("/")}`;
+  const headers = () => ({ Accept: "application/vnd.github+json", Authorization: "Bearer " + cfg.token, "X-GitHub-Api-Version": "2022-11-28" });
+  const b64encode = s => { const b = new TextEncoder().encode(s); let bin = ""; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(bin); };
+  const b64decode = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), c => c.charCodeAt(0)));
+  const stable = o => JSON.stringify(o, (k, v) => v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+  function set(status, msg = "") {
+    st.status = status; st.msg = msg; if (status === "ok") st.last = new Date();
+    const dot = document.getElementById("syncdot");
+    if (dot) { dot.hidden = !cfg; dot.className = "syncdot " + status; dot.title = "Team sync: " + status + (msg ? " – " + msg : ""); }
+    const el = document.getElementById("syncstatus"); if (el) el.innerHTML = statusHtml();
+  }
+  function statusHtml() {
+    if (!cfg) return "Saved in this browser only. Set up team sync below to share with the hiring team.";
+    const s = { idle: "Connecting…", syncing: "Syncing…", ok: "Shared with the team", error: "Sync problem" }[st.status] || st.status;
+    return `<strong>${s}</strong> via <code>${esc(cfg.repo)}/${esc(cfg.path)}</code>${st.last ? ` · last synced ${st.last.toLocaleTimeString()}` : ""}${st.msg ? ` · <span style="color:#b91c1c">${esc(st.msg)}</span>` : ""}`;
+  }
+  async function pull() {
+    const r = await fetch(url() + "?ref=" + encodeURIComponent(cfg.branch) + "&t=" + Date.now(), { headers: headers(), cache: "no-store" });
+    if (r.status === 404) { sha = null; return null; }
+    if (!r.ok) throw new Error(`reading the team file failed (HTTP ${r.status}${r.status === 401 ? ": check the token" : ""})`);
+    const j = await r.json();
+    sha = j.sha;
+    return JSON.parse(b64decode(j.content || "") || "null");
+  }
+  async function push(doc) {
+    const r = await fetch(url(), { method: "PUT", headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({ message: `Update saved candidates and role tags${cfg.name ? " (" + cfg.name + ")" : ""}`, branch: cfg.branch,
+        content: b64encode(JSON.stringify(doc, null, 1) + "\n"), ...(sha ? { sha } : {}) }) });
+    if (r.status === 409 || r.status === 422) return false;   // someone else wrote first: pull, merge, retry
+    if (!r.ok) throw new Error(`saving the team file failed (HTTP ${r.status}${r.status === 403 || r.status === 404 ? ": the token needs Contents read & write on this repository" : ""})`);
+    sha = (await r.json()).content.sha;
+    return true;
+  }
+  async function sync() {
+    if (!cfg) return;
+    if (busy) { again = true; return; }
+    busy = true; set("syncing");
+    try {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const remote = await pull();
+        if (remote) STORE.merge(remote);
+        const mine = STORE.snapshot();
+        if (remote && stable(remote) === stable(mine)) break;
+        if (await push(mine)) break;
+        if (attempt === 3) throw new Error("the team file kept changing; try again");
+      }
+      set("ok");
+    } catch (e) { set("error", e.message); }
+    busy = false;
+    if (again) { again = false; schedule(); }
+  }
+  function schedule(ms = 1200) { if (!cfg) return; clearTimeout(timer); timer = setTimeout(sync, ms); }
+  return {
+    cfg: () => cfg, status: () => st, statusHtml, sync, schedule,
+    name: () => cfg?.name || "",
+    configure(c) {
+      cfg = c; sha = null;
+      if (c) localStorage.setItem(KEY, JSON.stringify(c)); else localStorage.removeItem(KEY);
+      set(c ? "idle" : "off"); if (c) { this.start(); sync(); }
+    },
+    start() {
+      set(st.status);
+      if (!cfg || started) return;
+      started = true;
+      sync();
+      setInterval(() => { if (!document.hidden) sync(); }, 60000);
+      addEventListener("focus", () => schedule(200));
+    },
+  };
+})();
+
+const FIT_ORDER = { Strong: 0, Medium: 1, Low: 2, "Not rated": 3 };
+const fitOf = c => c?.fit || "Not rated";
+function fitBadge(c) {
+  const f = fitOf(c);
+  return `<span class="fit fit-${f.toLowerCase().replace(/\s+/g, "-")}" title="Research team's fit rating">${esc(f === "Not rated" ? "Fit not rated" : f + " fit")}</span>`;
+}
+const misTag = d => d.attribution === "Needs Review"
+  ? `<span class="tag ext" title="${esc(d.attributionNote || "The researcher match for this paper is uncertain (unconfirmed author identity or possible misattribution)")}">⚠ Needs Review</span>` : "";
+function availTag(d) {
+  return isExternal(d) ? `<span class="tag ext" title="Full text is not stored in the library; opens the original source">↗ External link only</span>`
+    : `<span class="tag" title="The full text is stored in the library">Full text in library</span>`;
+}
+
+// ------------------------------------------------------------------ search page
+const MODES = { hybrid: "Smart", keyword: "Exact words", semantic: "Meaning" };
+function srcOf(params) { const s = params.get("src"); return S.sources.some(x => x.id === s) ? s : "all"; }
+
+function renderSearch(params) {
+  const src = srcOf(params);
+  const q = params.get("q") || "";
+  let mode = MODES[params.get("mode")] ? params.get("mode") : "hybrid";
+  if (!semEnabled()) mode = "keyword";
+  const facets = FACETS.filter(f => !(f.allOnly && src !== "all"));
+  const filters = Object.fromEntries(facets.map(f => [f.key, params.get(f.key) || ""]));
+  const view = params.get("view") === "docs" ? "docs" : "people";
+  const sort = params.get("sort") || "relevance";
+  const shown = Math.max(PAGE, +params.get("n") || PAGE);
+  const groups = q.trim() ? parseQuery(q) : [];
+  const hasQuery = groups.length > 0;
+  const anyFilter = Object.values(filters).some(Boolean);
+  const pool = src === "all" ? S.docs : S.docs.filter(d => d.source === src);
+  const t0 = performance.now();
+
+  // ---- semantic pass (async: results are cached and the page re-renders when they arrive)
+  let sem = null, semNote = "";
+  const useSem = hasQuery && mode !== "keyword";
+  if (useSem) {
+    const text = semText(groups);
+    const key = `${src}|${filters.group || ""}|${text.toLowerCase()}`;
+    sem = SEM.results.get(key);
+    if (!sem) {
+      SEM.results.set(key, { pending: true });
+      const hash = location.hash;
+      semSearch(text, src, filters.group).then(r => { SEM.results.set(key, r); })
+        .catch(e => { SEM.results.set(key, { error: e.message }); console.error(e); })
+        .then(() => {
+          if (location.hash !== hash || POP) return;
+          // re-render with the meaning results, without disturbing anything the user is typing
+          const box = document.getElementById("q"), typed = box?.value, focused = document.activeElement === box;
+          const sel = focused ? [box.selectionStart, box.selectionEnd] : null, y = scrollY;
+          renderSearch(params);
+          const nb = document.getElementById("q");
+          if (nb && typed !== undefined) { nb.value = typed; if (focused) { nb.focus(); nb.setSelectionRange(...sel); } }
+          scrollTo(0, y);
+        });
+      sem = SEM.results.get(key);
+    }
+    if (sem.pending) semNote = `<span class="semstate">Searching by meaning…</span>`;
+    else if (sem.error) semNote = `<span class="semstate err">Meaning search unavailable (${esc(sem.error)}); showing exact matches.</span>`;
+    else if (!sem.known.length) semNote = `<span class="semstate">None of these words are in the meaning index; showing exact matches.</span>`;
+    else semNote = `<span class="semstate" title="Index files downloaded so far: ${SEM.stats.docShards.size} passage + ${SEM.stats.termShards.size} word files">Meaning search over ${sem.shards} of ${sem.total} index files</span>`;
+  }
+  const semReady = sem && sem.hits && sem.known.length;
+
+  // ---- keyword pass over the full-text index (async, cached; negative terms also filter the meaning results)
+  const kw = new Map();
+  let kwr = null, kwNote = "";
+  if (hasQuery) {
+    kwr = cachedSearch(KW, q.trim(), () => keywordSearch(groups));
+    if (kwr.pending) kwNote = `<span class="semstate">Searching the full text…</span>`;
+    else if (kwr.error) kwNote = `<span class="semstate err">Full-text search failed (${esc(kwr.error)}).</span>`;
+    else if (mode !== "semantic") for (const [i, sc] of kwr.scores) { const d = S.docs[i]; if (d && (src === "all" || d.source === src)) kw.set(d.id, sc); }
+  }
+
+  // ---- combine
+  const negated = d => !!kwr?.neg?.has(d.i);
+  const passes = (d, except) => facets.every(f => f.key === except || !filters[f.key] || f.get(d) === filters[f.key]);
+  const hitInfo = new Map();
+  let scored = [];
+  if (!hasQuery) scored = pool.map(d => [d, 1]);
+  else {
+    const semRank = new Map();
+    if (semReady) {
+      // the relevance cut-off is relative to the best match among the documents the filters allow
+      const inPool = sem.hits.filter(h => { const d = S.byId.get(h.id); return d && (src === "all" || d.source === src) && !negated(d) && passes(d); });
+      const top = inPool.length ? inPool[0].score : 0;
+      // scores fall off quickly after a few very close matches, so the cut-off is generous and the list is capped
+      const [cut, floor, cap] = mode === "semantic" ? [0.35, 0.12, 150] : [0.45, 0.15, 80];
+      inPool.filter(h => h.score >= Math.max(floor, top * cut)).slice(0, cap).forEach((h, i) => semRank.set(h.id, [i, h]));
+    }
+    const kwRank = new Map([...kw].sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i]));
+    const ids = new Set([...kw.keys(), ...semRank.keys()]);
+    for (const id of ids) {
+      const d = S.byId.get(id);
+      const k = kwRank.get(id), s = semRank.get(id);
+      // reciprocal-rank fusion of the exact-word and meaning rankings
+      const score = 1000 * ((k !== undefined ? 1 / (60 + k) : 0) + (s ? 1 / (60 + s[0]) : 0));
+      scored.push([d, score]);
+      hitInfo.set(id, { kw: k !== undefined, sem: s ? s[1] : null });
+    }
+  }
+  const results = scored.filter(([d]) => passes(d));
+
+  // people view: one entry per candidate, built from their matching documents
+  const people = new Map();
+  for (const [d, sc] of results) {
+    if (!people.has(d.candidate)) people.set(d.candidate, { c: S.cands.get(d.candidate), docs: [], score: 0 });
+    const p = people.get(d.candidate);
+    p.docs.push([d, sc]);
+    p.score += d.type === "Research summary" ? sc * 0.5 : sc;   // the person's own writing counts more than our notes
+  }
+  const terms = [];
+  for (const t of groups.flat()) if (!t.neg && !terms.some(x => x.text.toLowerCase() === t.text.toLowerCase())) terms.push(t);
+  // in Smart mode, plain-English filler words ("who", "make") are not shown as evidence chips
+  if (mode === "hybrid" && SEM.stop && terms.length > 1) for (let i = terms.length - 1; i >= 0; i--) if (!terms[i].phrase && SEM.stop.has(terms[i].text.toLowerCase())) terms.splice(i, 1);
+  for (const p of people.values()) {
+    p.cover = terms.map(t => p.docs.filter(([d]) => kwr?.cover?.get(t.text)?.has(d.i)).length);
+    p.covered = mode === "semantic" ? 0 : p.cover.filter(Boolean).length;
+    p.own = p.docs.filter(([d]) => d.type !== "Research summary").length;
+    p.docs.sort((a, b) => (a[0].type === "Research summary") - (b[0].type === "Research summary") || b[1] - a[1]);
+  }
+  const peopleList = [...people.values()];
+  if (sort === "fit") peopleList.sort((a, b) => FIT_ORDER[fitOf(a.c)] - FIT_ORDER[fitOf(b.c)] || b.covered - a.covered || b.score - a.score);
+  else if (sort === "candidate" || (!hasQuery && sort === "relevance")) peopleList.sort((a, b) => a.c.name.localeCompare(b.c.name));
+  else peopleList.sort((a, b) => b.covered - a.covered || b.score - a.score || a.c.name.localeCompare(b.c.name));
+
+  if (sort === "date") results.sort((a, b) => (b[0].year || 0) - (a[0].year || 0) || b[1] - a[1]);
+  else if (sort === "candidate" || sort === "fit") results.sort((a, b) => (sort === "fit" ? FIT_ORDER[fitOf(S.cands.get(a[0].candidate))] - FIT_ORDER[fitOf(S.cands.get(b[0].candidate))] : 0) || a[0].name.localeCompare(b[0].name) || a[0].id.localeCompare(b[0].id));
+  else results.sort((a, b) => b[1] - a[1] || a[0].name.localeCompare(b[0].name));
+  const ms = Math.round(performance.now() - t0);
+
+  // facet options with counts (each facet ignores its own selection); people view counts people
+  const facetHtml = facets.map(f => {
+    const counts = new Map(), all = new Set();
+    for (const [d] of scored) if (passes(d, f.key)) {
+      const v = f.get(d), k = view === "people" ? d.candidate : d.id;
+      if (!counts.has(v)) counts.set(v, new Set());
+      counts.get(v).add(k); all.add(k);
+    }
+    if (filters[f.key] && !counts.has(filters[f.key])) counts.set(filters[f.key], new Set());
+    const show = f.show || (v => v);
+    const last = v => /^(Not listed|No date|Not rated|Not recorded|Not a research paper)/.test(v);
+    const opts = [...counts].map(([v, s]) => [v, s.size]).sort((a, b) =>
+      f.key === "year" ? String(b[0]).localeCompare(String(a[0])) :
+      f.key === "cand" ? show(a[0]).localeCompare(show(b[0])) :
+      f.key === "fit" ? FIT_ORDER[a[0]] - FIT_ORDER[b[0]] :
+      last(a[0]) - last(b[0]) || b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+    return `<label for="f-${f.key}">${f.label}</label>
+      <select id="f-${f.key}" data-facet="${f.key}">
+        <option value="">All (${all.size})</option>
+        ${opts.map(([v, n]) => `<option value="${esc(v)}" ${v === filters[f.key] ? "selected" : ""}>${esc(show(v))} (${n})</option>`).join("")}
+      </select>`;
+  }).join("");
+
+  const regs = mode === "semantic" ? [] : positiveRegexes(groups);
+  const hlRegs = positiveRegexes(groups);
+  const total = view === "people" ? peopleList.length : results.length;
+  const srcName = src === "all" ? "the whole library" : srcLabel(src);
+  let list;
+  if (!hasQuery && !anyFilter) {
+    list = `<div class="empty">
+      <p>Search the complete text of every paper, page, post and research summary in ${esc(srcName)}. Describe what you're looking for in plain words, or use exact terms:</p>
+      <div class="examples">${["people who make LLM inference faster", "writing GPU kernels by hand", "compilers for machine learning", "\"reinforcement learning\"", "Triton OR CUTLASS", "quantiz*"]
+        .map(x => `<a href="${searchHref({ src, q: x })}">${esc(x)}</a>`).join("")}</div>
+      <p style="margin-top:18px">Or start from the research team's ratings:</p>
+      <div class="examples">${["Kernels/GPU", "Compilers", "Inference & serving", "Training & distributed", "Hardware/accelerators", "ML research"]
+        .map(t => `<a href="${searchHref({ src, fit: "Strong", track: t })}">Strong fit · ${esc(t)}</a>`).join("")}</div>
+      <p style="margin-top:18px">Or <a href="#/browse">browse by university, source and researcher</a>.</p></div>`;
+  } else if ((useSem && sem.pending && mode === "semantic") || (kwr?.pending && mode !== "semantic" && !total)) {
+    list = `<div class="empty">Searching ${mode === "semantic" ? "by meaning" : "the full text of the library"}…</div>`;
+  } else if (!total) {
+    list = `<div class="empty">No ${view === "people" ? "candidates" : "documents"} in ${esc(srcName)} match${hasQuery ? ` <strong>${esc(q)}</strong>` : ""}${anyFilter ? " with these filters" : ""}.</div>`;
+  } else {
+    const cards = view === "people"
+      ? peopleList.slice(0, shown).map(p => personCard(p, terms, regs, hlRegs, q, hitInfo, mode)).join("")
+      : results.slice(0, shown).map(([d]) => resultCard(d, hlRegs, q, hitInfo.get(d.id))).join("");
+    list = cards + (total > shown ? `<button class="more" id="more">Show more (${(total - shown).toLocaleString()} remaining)</button>` : "");
+  }
+
+  // source tabs: switching keeps the query, mode, view and filters that apply everywhere
+  const tabParams = id => { const p = new URLSearchParams(params); p.delete("n"); p.delete("source"); p.delete("group"); p.delete("cand"); p.set("src", id === "all" ? "" : id); return p; };
+  const counts = new Map(S.sources.map(s => [s.id, 0]));
+  for (const d of S.docs) counts.set(d.source, (counts.get(d.source) || 0) + 1);
+  const tabs = [{ id: "all", label: "All sources", n: S.docs.length }, ...S.sources.map(s => ({ id: s.id, label: s.label, n: counts.get(s.id) || 0 }))];
+  const desc = src === "all" ? "Search across every source in the library." : (S.sources.find(s => s.id === src)?.description || "");
+  const modeBtn = m => `<button type="button" data-mode="${m}" class="${mode === m ? "on" : ""}" ${!semEnabled() && m !== "keyword" ? "disabled" : ""}>${MODES[m]}</button>`;
+  const hint = {
+    hybrid: `Matches exact words <em>and</em> documents with a related meaning. <code>"exact phrase"</code> · <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> still work.`,
+    keyword: `Every word must appear in the document (any order; <code>"quoted words"</code> must all appear). <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> for word starts.`,
+    semantic: `Ranks passages by meaning, even when they use different words. <code>-word</code> still excludes.`,
+  }[mode];
+
+  $app.innerHTML = `
+    <nav class="srctabs" aria-label="Sources">${tabs.map(t => `<a href="#/?${new URLSearchParams([...tabParams(t.id)].filter(([, v]) => v))}" class="${t.id === src ? "on" : ""}" data-src="${t.id}" ${t.id === src ? 'aria-current="page"' : ""}>${esc(t.label)}<small>${t.n.toLocaleString()}</small></a>`).join("")}</nav>
+    <p class="srcdesc">${esc(desc)}</p>
+    <section class="searchbar">
+      <form id="sf" role="search">
+        <input type="search" id="q" value="${esc(q)}" placeholder="Search ${src === "all" ? "all sources" : esc(srcLabel(src))}…" autocomplete="off" aria-label="Search ${esc(srcName)}">
+        <button type="submit">Search</button>
+      </form>
+      <div class="searchopts"><span class="seg small" role="group" aria-label="Search mode">${modeBtn("hybrid")}${modeBtn("keyword")}${modeBtn("semantic")}</span>
+        <span class="hint">${semEnabled() ? hint : "Meaning search needs the site to be served over http(s). " + hint}</span></div>
+    </section>
+    <div class="layout">
+      <aside class="filters"><details id="fbox" ${anyFilter || matchMedia("(min-width: 821px)").matches ? "open" : ""}>
+        <summary>Filters${anyFilter ? ` (${Object.values(filters).filter(Boolean).length} active)` : ""}</summary>
+        ${facetHtml}${anyFilter ? `<button class="clear" id="clear">Clear filters</button>` : ""}</details></aside>
+      <section id="results">
+        ${hasQuery || anyFilter ? `<div class="summary-line">
+          <span class="seg">${tabBtn("people", "Candidates", view)}${tabBtn("docs", "Documents", view)}</span>
+          <span><strong style="color:var(--text)" id="rcount">${view === "people" ? peopleList.length.toLocaleString() + " candidate" + (peopleList.length === 1 ? "" : "s") : results.length.toLocaleString() + " document" + (results.length === 1 ? "" : "s")}</strong>
+          ${view === "people" ? `· ${results.length.toLocaleString()} matching documents` : `from ${people.size} candidate(s)`}${hasQuery ? ` · ${ms} ms` : ""}</span>
+          <span>Sort <select id="sort"><option value="relevance">${view === "people" && hasQuery && mode !== "semantic" ? "Evidence (terms covered)" : "Relevance"}</option>
+            <option value="fit" ${sort === "fit" ? "selected" : ""}>Fit rating</option>
+            ${view === "docs" ? `<option value="date" ${sort === "date" ? "selected" : ""}>Newest dated first</option>` : ""}
+            <option value="candidate" ${sort === "candidate" ? "selected" : ""}>Candidate A–Z</option></select></span>
+          ${kwNote}${semNote}</div>` : ""}
+        ${pendingNote(src)}
+        ${list}
+      </section>
+    </div>`;
+
+  const update = (changes) => {
+    const p = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(changes)) p.set(k, v);
+    if (!("n" in changes)) p.delete("n");
+    go("/", p);
+  };
+  document.getElementById("sf").onsubmit = e => { e.preventDefault(); update({ q: document.getElementById("q").value.trim() }); };
+  document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => update({ mode: b.dataset.mode === "hybrid" ? "" : b.dataset.mode, q: document.getElementById("q").value.trim() }));
+  document.querySelectorAll("[data-facet]").forEach(s => s.onchange = () => update({ [s.dataset.facet]: s.value }));
+  document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => update({ view: b.dataset.view === "docs" ? "docs" : "", sort: sort === "date" ? "" : sort }));
+  const sortEl = document.getElementById("sort"); if (sortEl) sortEl.onchange = () => update({ sort: sortEl.value === "relevance" ? "" : sortEl.value });
+  const clr = document.getElementById("clear"); if (clr) clr.onclick = () => update(Object.fromEntries(facets.map(f => [f.key, ""])));
+  const more = document.getElementById("more");
+  if (more) more.onclick = () => {
+    const y = scrollY, p = new URLSearchParams(params);
+    p.set("n", shown + PAGE);
+    history.replaceState(null, "", "#/?" + p);   // no hashchange, so render directly and keep the scroll position
+    renderSearch(p);
+    scrollTo(0, y);
+  };
+  if (!q && !anyFilter) document.getElementById("q").focus();
+}
+const tabBtn = (v, label, view) => `<button data-view="${v}" class="${view === v ? "on" : ""}">${label}</button>`;
+function searchHref(o) { return "#/?" + new URLSearchParams(Object.entries(o).filter(([k, v]) => v && !(k === "src" && v === "all"))); }
+function docHref(d, q, hit) {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  return `#/doc/${encodeURIComponent(d.id)}${[...p].length ? "?" + p : ""}`;
+}
+
+function personCard(p, terms, regs, hlRegs, q, hitInfo, mode) {
+  const c = p.c, qs = q ? "?q=" + encodeURIComponent(q) : "", key = STORE.key("c", c.id);
+  const evidence = p.docs.slice(0, 3).map(([d]) => { const h = hitInfo.get(d.id); return `<div class="evidence">
+      <a href="${docHref(d, q, h)}">${highlight(d.title, hlRegs)}</a><span class="tag">${esc(d.type)}</span>${isExternal(d) ? availTag(d) : ""}${misTag(d)}${h?.sem && !h.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}
+      ${q ? excerptHtml(d, hlRegs, h, 1) : ""}</div>`; }).join("");
+  const semOnly = p.docs.every(([d]) => !hitInfo.get(d.id)?.kw);
+  return `<article class="result person">
+    <div class="person-head">
+      <h3><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}${qs}">${esc(c.name)}</a> ${fitBadge(c)}</h3>
+      ${actions(key)}
+    </div>
+    <div class="meta">${c.track ? `<span><strong>${esc(c.track)}</strong></span>` : ""}<span>${esc(c.university || "University not listed")}</span>${c.company ? `<span>${esc(c.company)}</span>` : ""}<span>${esc(srcLabel(c.source))}</span></div>
+    ${tagRow(key)}
+    ${c.fitReason ? `<p class="reason"><span>Research team:</span> ${esc(c.fitReason)}</p>` : ""}
+    ${terms.length && mode !== "semantic" ? `<div class="cover">${terms.map((t, i) => `<span class="chip ${p.cover[i] ? "yes" : "no"}" title="${p.cover[i]} matching document(s)">${p.cover[i] ? "✓" : "✗"} ${esc(t.text)}${p.cover[i] ? ` <small>${p.cover[i]}</small>` : ""}</span>`).join("")}
+      <span class="ownnote">${semOnly ? "Related by meaning (no exact word match)" : p.own ? `${p.own} of their own page${p.own === 1 ? " matches" : "s match"}` : "Matches only in research notes"}</span></div>` : ""}
+    ${evidence}
+    ${p.docs.length > 3 ? `<a class="morelink" href="#/candidate/${encodeURIComponent(c.id)}${qs}">+ ${p.docs.length - 3} more matching document${p.docs.length - 3 === 1 ? "" : "s"}</a>` : ""}
+  </article>`;
+}
+
+function metaLine(d, withName = true) {
+  return `<div class="meta">
+    ${withName ? `<span><a class="pname" href="#/candidate/${encodeURIComponent(d.candidate)}"><strong>${esc(d.name)}</strong></a></span>` : ""}
+    <span>${esc(d.university || "University not listed")}</span>
+    <span>${esc(d.platform)}</span>
+    ${d.date ? `<span>${esc(d.date)}</span>` : ""}
+    <span>${esc(srcLabel(d.source))}</span>
+    <span>${esc(d.group)}</span>
+  </div>`;
+}
+
+function resultCard(d, regs, q, hit) {
+  const key = STORE.key("d", d.id);
+  return `<article class="result" data-src="${esc(d.source)}">
+    <div class="person-head"><h3><a href="${docHref(d, q, hit)}">${highlight(d.title, regs)}</a><span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}${hit?.sem && !hit.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}</h3>${actions(key)}</div>
+    ${metaLine(d)}
+    ${d.authors ? `<div class="meta"><span>Authors: ${highlight(d.authors.length > 220 ? d.authors.slice(0, 220) + "…" : d.authors, regs)}</span></div>` : ""}
+    ${tagRow(key)}
+    ${excerptHtml(d, regs, hit)}
+  </article>`;
+}
+
+// ------------------------------------------------------------------ document viewer
+const LIST_RE = /^\s*([•●▪◦·\-–]|\d{1,3}[.)])\s+/;
+const CODE_RE = /^(\s{2,}\S|\t|#include\b|#define\b|#!|def |class \w+[:(]|import \w|from \w[\w.]* import |return\b|for \(|while \(|if \(|template\s*<|__global__|\$ |>>> |\/\/ |\/\*|[{}]\s*$|\w[\w.]*\s*\(.*\)\s*;\s*$|(?:let|const|var|int|float|void|auto|fn)\s+\w+.*[;{=]\s*$)/;
+
+function renderBlocks(blocks, regs) {
+  let html = "", i = 0;
+  while (i < blocks.length) {
+    const [kind, text] = blocks[i];
+    if (kind === "h") { html += `<h2>${highlight(text, regs)}</h2>`; i++; continue; }
+    if (kind === "pre") { html += `<pre>${highlight(text, regs)}</pre>`; i++; continue; }
+    if (CODE_RE.test(text)) {
+      const lines = [];
+      while (i < blocks.length && blocks[i][0] === "p" && (CODE_RE.test(blocks[i][1]) || (lines.length && blocks[i + 1] && CODE_RE.test(blocks[i + 1][1]) && blocks[i][1].length < 80))) lines.push(blocks[i++][1]);
+      if (lines.length >= 2) { html += `<pre>${lines.map(l => highlight(l, regs)).join("\n")}</pre>`; continue; }
+      html += `<p>${highlight(lines[0], regs)}</p>`; continue;
+    }
+    if (LIST_RE.test(text)) {
+      const items = [];
+      while (i < blocks.length && blocks[i][0] === "p" && LIST_RE.test(blocks[i][1])) items.push(blocks[i++][1]);
+      html += `<ul class="asis">${items.map(t => `<li>${highlight(t, regs)}</li>`).join("")}</ul>`;
+      continue;
+    }
+    html += `<p>${highlight(text, regs)}</p>`; i++;
+  }
+  return html;
+}
+
+const EXTERNAL_NOTICE = "External source: The full text for this item is not available in the local library. You are being redirected to the original source.";
+
+function renderDoc(id, params) {
+  const d = S.byId.get(id);
+  if (!d) { $app.innerHTML = `<div class="page"><div class="empty">Document not found. <a href="#/">Back to search</a></div></div>`; return; }
+  const q = params.get("q") || "";
+  const regs = q ? positiveRegexes(parseQuery(q)) : [];
+  const c = S.cands.get(d.candidate) || { docs: [] };
+  const key = STORE.key("d", d.id);
+  const others = c.docs.filter(x => x !== d.id).map(x => S.byId.get(x)).filter(Boolean);
+  const crumbs = `<div class="crumbs">${q ? `<a href="#/?q=${encodeURIComponent(q)}">← Results for ${esc(q)}</a> · ` : ""}<a href="#/browse">Browse</a> › <a class="pname" href="#/candidate/${encodeURIComponent(d.candidate)}">${esc(d.name)}</a></div>`;
+  const moreFrom = others.length ? `<h2 style="font-size:16px;margin-top:40px">More from <span class="pname">${esc(d.name)}</span> <small style="color:var(--muted);font-weight:400">(${others.length})</small></h2><ul class="doclist">${others.slice(0, 200).map(o => `<li><a href="#/doc/${encodeURIComponent(o.id)}${q ? "?q=" + encodeURIComponent(q) : ""}">${esc(o.title)}</a> <span class="tag">${esc(o.type)}</span>${isExternal(o) ? availTag(o) : ""}${misTag(o)}</li>`).join("")}</ul>` : "";
+  const driveLink = d.drive ? `<a href="https://drive.google.com/file/d/${encodeURIComponent(d.drive)}/view" target="_blank" rel="noopener noreferrer">Open in Google Drive ↗</a>` : "";
+  const attrRow = d.attribution ? `<dt>Researcher match</dt><dd>${d.attribution === "Needs Review" ? misTag(d) + " " : ""}${esc(d.attributionNote || (d.attribution === "Needs Review" ? "Uncertain researcher match" : "Matched"))}</dd>` : "";
+
+  if (isExternal(d)) {
+    // Not stored here: explain, then send the user to the original source.
+    $app.innerHTML = `<div class="page">${crumbs}
+      <div class="person-head"><h1>${esc(d.title)} ${misTag(d)}</h1>${actions(key)}</div>
+      ${metaLine(d)}${tagRow(key)}
+      <div class="extnotice" role="note" id="extnotice">
+        <p><strong>External source:</strong> The full text for this item is not available in the local library. You are being redirected to the original source.</p>
+        <p class="url">Original source: ${esc(d.url)}</p>
+        <a class="btn" id="extgo" href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">Continue to original source ↗</a>
+        <a class="btn subtle" href="#/candidate/${encodeURIComponent(d.candidate)}">Stay in the library</a>
+      </div>
+      <dl class="infobox"><dt>Availability</dt><dd>External link only (not archived)</dd><dt>Source URL</dt><dd>${esc(d.url)}</dd>
+        ${d.type === "Research paper" ? `<dt>Venue</dt><dd>${esc(d.platform)}</dd>${d.year ? `<dt>Year</dt><dd>${d.year}</dd>` : ""}` : ""}
+        ${attrRow}
+        ${d.unavailableNote ? `<dt>Why not archived</dt><dd>${esc(d.unavailableNote)}</dd>` : ""}
+        ${driveLink ? `<dt>Archive record</dt><dd>${driveLink}</dd>` : ""}
+        ${c.relevance ? `<dt>Research team</dt><dd>${esc(c.relevance)}</dd>` : ""}${c.status ? `<dt>Archive status</dt><dd>${esc(c.status)}</dd>` : ""}</dl>
+      ${moreFrom}</div>`;
+    scrollTo(0, 0);
+    return;
+  }
+
+  $app.innerHTML = `<div class="page">
+    ${crumbs}
+    <div class="person-head"><h1>${esc(d.title)} ${misTag(d)}</h1>${actions(key)}</div>
+    ${metaLine(d)}
+    ${tagRow(key)}
+    <dl class="infobox">
+      <dt>Content type</dt><dd>${esc(d.type)}${d.fmt === "pdf" ? " (PDF)" : ""}</dd>
+      ${d.authors ? `<dt>Authors</dt><dd>${esc(d.authors)}</dd>` : ""}
+      ${d.type === "Research paper" ? `<dt>Venue</dt><dd>${esc(d.platform)}</dd>` : ""}
+      ${d.doi ? `<dt>DOI</dt><dd><a href="${esc(/^https?:/.test(d.doi) ? d.doi : "https://doi.org/" + d.doi)}" target="_blank" rel="noopener noreferrer">${esc(d.doi)}</a></dd>` : ""}
+      ${attrRow}
+      <dt>Availability</dt><dd>Full text in the library${d.drive ? " (Google Drive archive)" : ""}${d.fullTextSource && /^https?:/.test(d.fullTextSource) ? ` · converted from <a href="${esc(d.fullTextSource)}" target="_blank" rel="noopener noreferrer">${esc(d.conversion || "source")}</a>` : d.conversion ? ` · ${esc(d.conversion)}` : ""}</dd>
+      <dt>Source URL</dt><dd>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.url)}</a>` : "Not recorded"}</dd>
+      <dt>Published</dt><dd>${d.date ? esc(d.date) : "No date recorded"}</dd>
+      ${driveLink ? `<dt>Archive file</dt><dd>${driveLink}</dd>` : c.file ? `<dt>Archive file</dt><dd>${esc(c.file)}</dd>` : ""}
+    </dl>
+    ${d.type === "Research summary" ? `<p class="notice">Written by the Infinity research team when reviewing this candidate’s site; not the candidate’s own writing.</p>` : ""}
+    <div id="doctext"><div class="loading" style="padding:30px 0">${d.drive ? "Opening the paper from Google Drive…" : "Loading…"}</div></div>
+    ${moreFrom}
+  </div>`;
+  scrollTo(0, 0);
+  const hash = location.hash;
+  docContent(d).then(content => {
+    if (location.hash !== hash) return;
+    const box = document.getElementById("doctext");
+    if (content.pdf) {
+      box.innerHTML = `<p class="notice">PDF from the archive. ${q ? "Use your browser's find (Ctrl/Cmd+F) inside the PDF to locate search terms." : ""}</p>
+        <object class="pdfview" data="${content.pdf}" type="application/pdf"><p>Your browser cannot show PDFs inline. ${driveLink}</p></object>`;
+      return;
+    }
+    box.innerHTML = `${regs.length ? `<div class="docbar"><span id="mcount"></span><button id="prev">↑ Previous</button><button id="next">↓ Next match</button></div>` : ""}
+      <article class="doc">${content.blocks.length ? renderBlocks(content.blocks, regs) : "<p><em>This document has no text.</em></p>"}</article>`;
+    if (regs.length) {
+      const marks = [...document.querySelectorAll(".doc mark")];
+      let cur = -1;
+      const label = document.getElementById("mcount");
+      const step = dir => {
+        if (!marks.length) return;
+        if (cur >= 0) marks[cur].classList.remove("current");
+        cur = (cur + dir + marks.length) % marks.length;
+        marks[cur].classList.add("current");
+        marks[cur].scrollIntoView({ block: "center", behavior: "smooth" });
+        label.textContent = `Match ${cur + 1} of ${marks.length}`;
+      };
+      label.textContent = marks.length ? `${marks.length} match${marks.length === 1 ? "" : "es"} in text` : "No exact matches in the text (found by related meaning or in the metadata)";
+      document.getElementById("next").onclick = () => step(1);
+      document.getElementById("prev").onclick = () => step(-1);
+      if (marks.length) setTimeout(() => step(1), 50);
+    }
+  }).catch(e => {
+    if (location.hash !== hash) return;
+    document.getElementById("doctext").innerHTML = `<div class="error"><strong>Could not open this document${d.drive ? " from Google Drive" : ""}.</strong><br>${
+      e.status === 403 || e.status === 404 || e.message === "no-access" ? "Your Google account does not have access to this file." : esc(e.message)} ${driveLink}</div>`;
+  });
+}
+
+// ------------------------------------------------------------------ candidate page
+const extLink = u => u ? `<a href="${esc(/^https?:/.test(u) ? u : "https://" + u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>` : "";
+
+function renderCandidate(id, params) {
+  const c = S.cands.get(id);
+  if (!c) { $app.innerHTML = `<div class="page"><div class="empty">Researcher not found. <a href="#/browse">Browse</a></div></div>`; return; }
+  const q = params?.get("q") || "";
+  const groups = q ? parseQuery(q) : [];
+  const regs = positiveRegexes(groups);
+  const key = STORE.key("c", c.id);
+  const kwr = groups.length ? cachedSearch(KW, q.trim(), () => keywordSearch(groups)) : null;
+  const matched = d => !!kwr?.scores?.has(d.i);
+  const docs = c.docs.map(x => S.byId.get(x)).filter(Boolean)
+    .map(d => [d, matched(d) ? 1 : 0])
+    .sort((a, b) => b[1] - a[1] || (a[0].type === "Research summary") - (b[0].type === "Research summary") || (b[0].year || 0) - (a[0].year || 0));
+  const nMatch = docs.filter(([, sc]) => sc > 0).length;
+  const rows = [
+    ["Fit for Infinity", c.fit ? esc(c.fit) : c.source === "university" ? "" : "Not rated"],
+    ["Track", esc(c.track)],
+    ["Why (research team)", esc(c.fitReason)],
+    ["Relevance", esc(c.relevance)],
+    ["University", esc(c.university || "Not listed")],
+    ["Company / organisation", esc(c.company)],
+    ["Role / institution", c.institution && c.institution !== c.university && c.institution !== c.company ? esc(c.institution) : ""],
+    ["Source", esc(srcLabel(c.source)) + ` <small style="color:var(--muted)">(${esc(c.group)})</small>`],
+    ["OpenAlex", c.openalex ? extLink(c.openalex) : ""],
+    ["Archive folder", c.driveFolder ? `<a href="https://drive.google.com/drive/folders/${encodeURIComponent(c.driveFolder)}" target="_blank" rel="noopener noreferrer">Open in Google Drive ↗</a>` : ""],
+    ["Blog / site", extLink(c.site)],
+    ["GitHub", c.github ? extLink("https://github.com/" + c.github.replace(/^@/, "")) : ""],
+    ["X", c.x ? esc(c.x) : ""],
+    ["Status", esc(c.status)],
+    ["Note", esc(c.note)],
+  ].filter(r => r[1]);
+  const review = docs.filter(([d]) => d.attribution === "Needs Review").length;
+  const qs = q ? "?q=" + encodeURIComponent(q) : "";
+  $app.innerHTML = `<div class="page">
+    <div class="crumbs">${q ? `<a href="#/?q=${encodeURIComponent(q)}">← Results for ${esc(q)}</a> · ` : ""}<a href="#/browse">Browse</a> › ${esc(c.university || srcLabel(c.source))}</div>
+    <div class="person-head"><h1><span class="pname">${esc(c.name)}</span> ${c.source === "university" ? "" : fitBadge(c)}</h1>${actions(key)}</div>
+    ${tagRow(key)}
+    <dl class="infobox">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    ${review ? `<p class="notice">⚠ ${review} of these documents ${review === 1 ? "has" : "have"} an uncertain researcher match (Needs Review).</p>` : ""}
+    <h2 style="font-size:16px">${docs.length} document${docs.length === 1 ? "" : "s"}${q ? ` · ${kwr?.pending ? "searching…" : `${nMatch} match “${esc(q)}”`}` : ""}</h2>
+    <ul class="doclist">${docs.map(([d, sc]) => { const dk = STORE.key("d", d.id); return `<li${q && !sc ? ' class="dim"' : ""}><div class="person-head"><div><a href="#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}"><strong>${highlight(d.title, regs)}</strong></a> <span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}</div>${actions(dk)}</div>
+      <div class="meta"><span>${esc(d.platform)}</span>${d.date ? `<span>${esc(d.date)}</span>` : ""}${isExternal(d) || !d.len ? "" : `<span>${d.len.toLocaleString()} indexed words</span>`}${d.fmt === "pdf" ? "<span>PDF</span>" : ""}</div>
+      ${tagRow(dk)}
+      ${sc && d.snippet ? `<p class="excerpt">${highlight(d.snippet, regs)}</p>` : ""}</li>`; }).join("")}</ul>
+  </div>`;
+  scrollTo(0, 0);
+}
+
+// ------------------------------------------------------------------ saved page: shortlist, bookmarks, role tags, CSV
+function renderSaved(params) {
+  const tab = params.get("tab") === "docs" ? "docs" : "cands";
+  const tag = params.get("tag") || "";
+  const cands = STORE.list("c").filter(x => S.cands.has(x.id)).sort((a, b) => S.cands.get(a.id).name.localeCompare(S.cands.get(b.id).name));
+  const docs = STORE.list("d").filter(x => S.byId.has(x.id)).sort((a, b) => b.t - a.t);
+  const items = tab === "docs" ? docs : cands;
+  const tagCount = new Map();
+  for (const it of items) for (const t of it.tags) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+  const untagged = items.filter(it => !it.tags.length).length;
+  const shown = items.filter(it => !tag || (tag === "__none" ? !it.tags.length : it.tags.includes(tag)));
+  const href = o => "#/saved?" + new URLSearchParams(Object.entries({ tab: tab === "docs" ? "docs" : "", tag, ...o }).filter(([, v]) => v));
+  const allTags = STORE.allTags();
+  const usage = new Map();
+  for (const it of [...cands, ...docs]) for (const t of it.tags) usage.set(t, (usage.get(t) || 0) + 1);
+  const cfg = SYNC.cfg() || {};
+  const bmByCand = new Map();
+  for (const it of docs) { const d = S.byId.get(it.id); if (!bmByCand.has(d.candidate)) bmByCand.set(d.candidate, []); bmByCand.get(d.candidate).push(d); }
+
+  const candCard = it => {
+    const c = S.cands.get(it.id), key = it.key, bms = bmByCand.get(c.id) || [];
+    return `<article class="result person">
+      <div class="person-head"><h3><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}">${esc(c.name)}</a> ${fitBadge(c)}</h3>${actions(key)}</div>
+      <div class="meta">${c.track ? `<span><strong>${esc(c.track)}</strong></span>` : ""}<span>${esc(c.university || "University not listed")}</span>${c.company ? `<span>${esc(c.company)}</span>` : ""}<span>${esc(srcLabel(c.source))}</span><span>${c.docs.length} document${c.docs.length === 1 ? "" : "s"}</span>${c.site ? `<span>${extLink(c.site)}</span>` : ""}</div>
+      ${tagRow(key)}
+      ${c.fitReason ? `<p class="reason"><span>Research team:</span> ${esc(c.fitReason)}</p>` : ""}
+      ${bms.length ? `<ul class="bmlist">${bms.map(d => `<li>🔖 <a href="#/doc/${encodeURIComponent(d.id)}">${esc(d.title)}</a></li>`).join("")}</ul>` : ""}
+      <textarea class="slnote" data-note="${esc(key)}" rows="2" placeholder="Notes (included in the CSV${SYNC.cfg() ? "; shared with the team" : ""})">${esc(it.note)}</textarea>
+      ${it.by ? `<div class="ownnote">Last changed by ${esc(it.by)}</div>` : ""}
+    </article>`;
+  };
+  const docCard = it => {
+    const d = S.byId.get(it.id), key = it.key;
+    return `<article class="result">
+      <div class="person-head"><h3><a href="#/doc/${encodeURIComponent(d.id)}">${esc(d.title)}</a><span class="tag">${esc(d.type)}</span>${availTag(d)}</h3>${actions(key)}</div>
+      ${metaLine(d)}
+      ${tagRow(key)}
+      <textarea class="slnote" data-note="${esc(key)}" rows="2" placeholder="Notes (included in the CSV${SYNC.cfg() ? "; shared with the team" : ""})">${esc(it.note)}</textarea>
+      ${it.by ? `<div class="ownnote">Last changed by ${esc(it.by)}</div>` : ""}
+    </article>`;
+  };
+
+  $app.innerHTML = `<div class="page">
+    <div class="person-head"><h1>Saved</h1></div>
+    <p class="notice" id="syncstatus">${SYNC.statusHtml()}</p>
+    <div class="toolbar">
+      <span class="seg"><button data-stab="cands" class="${tab === "cands" ? "on" : ""}">Shortlisted candidates (${cands.length})</button><button data-stab="docs" class="${tab === "docs" ? "on" : ""}">Bookmarked results (${docs.length})</button></span>
+      <span>${shown.length ? `<button class="btn" id="csv">Export CSV${tag ? " (" + esc(tag === "__none" ? "untagged" : tag) + ")" : ""}</button>` : ""}
+        ${items.length ? `<button class="btn subtle" id="slclear">Remove all</button>` : ""}</span>
+    </div>
+    ${items.length ? `<div class="tagfilter" aria-label="Filter by role tag"><span class="hint">Role tag:</span>
+      <a href="${href({ tag: "" })}" class="${!tag ? "on" : ""}">All (${items.length})</a>
+      ${allTags.filter(t => tagCount.has(t)).map(t => `<a href="${href({ tag: t })}" data-tagfilter="${esc(t)}" class="${tag === t ? "on" : ""}">${esc(t)} (${tagCount.get(t)})</a>`).join("")}
+      ${untagged ? `<a href="${href({ tag: "__none" })}" class="${tag === "__none" ? "on" : ""}">Untagged (${untagged})</a>` : ""}</div>` : ""}
+    ${shown.length ? shown.map(tab === "docs" ? docCard : candCard).join("")
+      : `<div class="empty">${items.length ? "Nothing here has this role tag." : tab === "docs"
+        ? "No bookmarks yet. Use Bookmark on a result in the Documents view of a search, or on any document page."
+        : "No one shortlisted yet. Use ☆ Shortlist on a candidate in search results or on their page."}</div>`}
+
+    <details class="panel" id="managetags" ${params.get("manage") ? "open" : ""}><summary>Manage role tags (${allTags.length})</summary><div>
+      <p class="help">Renaming or deleting a tag changes it on every candidate and result that has it. Add tags here or from the 🏷 Role tags button on any result.</p>
+      <table>${allTags.map(t => `<tr><td><input type="text" value="${esc(t)}" data-rename="${esc(t)}" aria-label="Tag name"></td><td style="white-space:nowrap;color:var(--muted);font-size:13px">${usage.get(t) || 0} in use</td>
+        <td style="white-space:nowrap"><button class="mini" data-renamebtn="${esc(t)}">Rename</button> <button class="mini danger" data-deltag="${esc(t)}">Delete</button></td></tr>`).join("")}</table>
+      <form id="newtag" style="display:flex;gap:6px;margin-top:10px;max-width:420px"><input type="text" placeholder="New role tag" maxlength="40" aria-label="New role tag" style="flex:1;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)"><button class="mini">Add tag</button></form>
+    </div></details>
+
+    <details class="panel" id="syncpanel" ${params.get("sync") ? "open" : ""}><summary>Team sharing ${SYNC.cfg() ? "(on)" : "(off: this browser only)"}</summary><div>
+      <p class="help">Without team sync, shortlists, bookmarks, tags and notes are stored only in this browser. To share them, the team keeps one JSON file
+        in a GitHub repository (preferably a <strong>private</strong> one, because this site's repository is public). Each person enters a
+        fine-grained personal access token with <em>Contents: read and write</em> on that repository. The token stays in this browser.</p>
+      <form id="syncform"><div class="grid">
+        <label for="s-repo">Repository</label><input type="text" id="s-repo" placeholder="owner/private-repo" value="${esc(cfg.repo || "")}" required>
+        <label for="s-branch">Branch</label><input type="text" id="s-branch" value="${esc(cfg.branch || "main")}" required>
+        <label for="s-path">File path</label><input type="text" id="s-path" value="${esc(cfg.path || "irl/saved.json")}" required>
+        <label for="s-token">Access token</label><input type="password" id="s-token" placeholder="github_pat_…" value="${esc(cfg.token || "")}" required autocomplete="off">
+        <label for="s-name">Your name</label><input type="text" id="s-name" placeholder="Shown as 'last changed by'" value="${esc(cfg.name || "")}">
+      </div>
+      <button class="btn" type="submit">${SYNC.cfg() ? "Save settings" : "Turn on team sync"}</button>
+      ${SYNC.cfg() ? `<button class="btn subtle" type="button" id="syncnow">Sync now</button> <button class="btn subtle" type="button" id="syncoff">Turn off on this browser</button>` : ""}</form>
+      <p class="help">Backups: <a href="#" id="exportjson">download everything as JSON</a> · <label style="color:var(--accent);cursor:pointer">import a JSON backup<input type="file" id="importjson" accept=".json,application/json" hidden></label> (merged with what is here).</p>
+    </div></details>
+  </div>`;
+
+  document.querySelectorAll("[data-stab]").forEach(b => b.onclick = () => go("/saved", new URLSearchParams({ tab: b.dataset.stab === "docs" ? "docs" : "" })));
+  document.querySelectorAll("[data-note]").forEach(t => t.oninput = () => STORE.setNote(t.dataset.note, t.value.trim()));
+  const csv = document.getElementById("csv");
+  if (csv) csv.onclick = () => tab === "docs" ? downloadDocsCsv(shown) : downloadCandsCsv(shown, bmByCand);
+  const clr = document.getElementById("slclear");
+  if (clr) clr.onclick = () => { if (confirm(`Remove every ${tab === "docs" ? "bookmark" : "shortlisted candidate"}${SYNC.cfg() ? " for the whole team" : ""}?`)) { STORE.clearKind(tab === "docs" ? "d" : "c"); route(); } };
+  document.querySelectorAll("[data-renamebtn]").forEach(b => b.onclick = () => {
+    const from = b.dataset.renamebtn, to = document.querySelector(`[data-rename="${CSS.escape(from)}"]`).value;
+    STORE.renameTag(from, to); go("/saved", new URLSearchParams({ tab: tab === "docs" ? "docs" : "", manage: "1" })); route();
+  });
+  document.querySelectorAll("[data-deltag]").forEach(b => b.onclick = () => {
+    const t = b.dataset.deltag, n = usage.get(t) || 0;
+    if (!n || confirm(`Delete the role tag "${t}"? It will be removed from ${n} item${n === 1 ? "" : "s"}.`)) { STORE.deleteTag(t); route(); }
+  });
+  document.getElementById("newtag").onsubmit = e => { e.preventDefault(); STORE.addTag(e.target.querySelector("input").value); route(); };
+  document.getElementById("syncform").onsubmit = e => {
+    e.preventDefault();
+    const v = id => document.getElementById(id).value.trim();
+    if (!/^[\w.-]+\/[\w.-]+$/.test(v("s-repo"))) { alert("Repository must look like owner/name"); return; }
+    SYNC.configure({ repo: v("s-repo"), branch: v("s-branch") || "main", path: v("s-path").replace(/^\/+/, ""), token: v("s-token"), name: v("s-name") });
+    route();
+  };
+  const now = document.getElementById("syncnow"); if (now) now.onclick = () => SYNC.sync();
+  const off = document.getElementById("syncoff"); if (off) off.onclick = () => { if (confirm("Stop syncing on this browser? Your saved items stay here; the team file is not changed.")) { SYNC.configure(null); route(); } };
+  document.getElementById("exportjson").onclick = e => { e.preventDefault(); download(JSON.stringify(STORE.snapshot(), null, 1), "application/json", `infinity-saved-${today()}.json`); };
+  document.getElementById("importjson").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const n = STORE.merge(JSON.parse(await f.text())).length; alert(`Imported: ${n} item${n === 1 ? "" : "s"} updated.`); SYNC.schedule(); route(); }
+    catch (err) { alert("That file is not a valid backup: " + err.message); }
+  };
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+const libLink = hash => location.href.split("#")[0] + hash;
+function toCsv(cols, rows) {
+  const cell = v => { const t = String(v ?? ""); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  return "﻿" + [cols, ...rows].map(r => r.map(cell).join(",")).join("\r\n");   // BOM so Excel reads UTF-8 names
+}
+function download(text, type, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function downloadCandsCsv(list, bmByCand) {
+  const cols = ["Name", "Role tags", "Fit for Infinity", "Track", "Fit reason (research team)", "Source", "Source group", "University", "Company / organisation",
+    "Role / institution", "Blog / site", "GitHub", "X", "Relevance", "Research note", "Archived documents", "Source URLs", "Bookmarked results", "Notes", "Last changed by", "Library link"];
+  const rows = list.map(it => {
+    const c = S.cands.get(it.id), docs = c.docs.map(x => S.byId.get(x)).filter(Boolean);
+    return [c.name, it.tags.join("; "), c.fit || "Not rated", c.track, c.fitReason, srcLabel(c.source), c.group, c.university, c.company, c.institution, c.site, c.github, c.x,
+      c.relevance, c.note, docs.filter(d => !isExternal(d)).length, [...new Set(docs.map(d => d.url).filter(Boolean))].join(" "),
+      (bmByCand.get(c.id) || []).map(d => d.title).join("; "), it.note, it.by, libLink("#/candidate/" + encodeURIComponent(c.id))];
+  });
+  download(toCsv(cols, rows), "text/csv;charset=utf-8", `infinity-shortlist-${today()}.csv`);
+}
+function downloadDocsCsv(list) {
+  const cols = ["Title", "Role tags", "Candidate", "Candidate role tags", "Fit for Infinity", "Source", "Source group", "University", "Company / organisation",
+    "Content type", "Availability", "Published", "Original URL", "Notes", "Last changed by", "Library link"];
+  const rows = list.map(it => {
+    const d = S.byId.get(it.id), c = S.cands.get(d.candidate);
+    return [d.title, it.tags.join("; "), d.name, STORE.tagsOf(STORE.key("c", c.id)).join("; "), c.fit || "Not rated", srcLabel(d.source), d.group, d.university, c.company,
+      d.type, d.availability, d.date, d.url, it.note, it.by, libLink("#/doc/" + encodeURIComponent(d.id))];
+  });
+  download(toCsv(cols, rows), "text/csv;charset=utf-8", `infinity-bookmarks-${today()}.csv`);
+}
+
+// ------------------------------------------------------------------ browse page
+function renderBrowse(params) {
+  const mode = ["group", "source"].includes(params.get("by")) ? params.get("by") : "university";
+  const filter = (params.get("f") || "").toLowerCase();
+  const keyOf = c => mode === "group" ? c.group : mode === "source" ? srcLabel(c.source) : (c.university || "University not listed");
+  const buckets = new Map();
+  for (const c of S.index.candidates) {
+    const hay = (c.name + " " + c.university + " " + c.institution + " " + c.group + " " + (c.company || "")).toLowerCase();
+    if (filter && !hay.includes(filter)) continue;
+    const k = keyOf(c);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(c);
+  }
+  const keys = [...buckets.keys()].sort((a, b) => (a === "University not listed") - (b === "University not listed") || a.localeCompare(b));
+  const open = filter || keys.length <= 3;
+  $app.innerHTML = `<div class="page">
+    <div class="browse-head">
+      <div class="seg"><button data-by="university" class="${mode === "university" ? "on" : ""}">By university</button><button data-by="source" class="${mode === "source" ? "on" : ""}">By source</button><button data-by="group" class="${mode === "group" ? "on" : ""}">By source group</button></div>
+      <input type="search" id="bf" placeholder="Filter candidates by name, university, company or role…" value="${esc(params.get("f") || "")}">
+    </div>
+    ${keys.length ? keys.map(k => {
+      const cs = buckets.get(k).sort((a, b) => a.name.localeCompare(b.name));
+      const nd = cs.reduce((n, c) => n + c.docs.length, 0);
+      return `<details class="group" ${open ? "open" : ""}><summary>${esc(k)} <span>${cs.length} candidate${cs.length === 1 ? "" : "s"} · ${nd} documents</span></summary>
+        <ul class="cand-list">${cs.map(c => `<li><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}">${esc(c.name)}</a> <small>${c.fit ? esc(c.fit) + " fit · " : ""}${c.docs.length} doc${c.docs.length === 1 ? "" : "s"}${mode !== "university" && c.university ? " · " + esc(c.university) : ""}${mode !== "group" ? " · " + esc(c.group) : ""}</small></li>`).join("")}</ul></details>`;
+    }).join("") : `<div class="empty">No candidates match.</div>`}
+  </div>`;
+  if (!document.activeElement || document.activeElement.id !== "bf") scrollTo(0, 0);
+  document.querySelectorAll("[data-by]").forEach(b => b.onclick = () => go("/browse", new URLSearchParams({ by: b.dataset.by === "university" ? "" : b.dataset.by, f: params.get("f") || "" })));
+  const bf = document.getElementById("bf");
+  let timer;
+  bf.oninput = () => { clearTimeout(timer); timer = setTimeout(() => {
+    history.replaceState(null, "", "#/browse?" + new URLSearchParams([["by", mode === "university" ? "" : mode], ["f", bf.value]].filter(([, v]) => v)));
+    renderBrowse(new URLSearchParams(location.hash.split("?")[1] || "")); const n = document.getElementById("bf"); n.focus(); n.setSelectionRange(n.value.length, n.value.length);
+  }, 150); };
+}
+
+start(false);
+</script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+{
+ "candidates": [
+  {
+   "id": "test-1",
+   "name": "Gina Gpu",
+   "group": "OpenAI",
+   "university": "",
+   "institution": "",
+   "x": "",
+   "github": "",
+   "site": "https://gina.example",
+   "status": "Done: summary saved",
+   "fit": "Strong",
+   "track": "Kernels/GPU",
+   "fitReason": "Writes about GPU kernels",
+   "relevance": "GPU systems",
+   "note": "",
+   "file": "OpenAI/Gina Gpu.docx",
+   "company": "OpenAI"
+  },
+  {
+   "id": "test-2",
+   "name": "Hal Systems",
+   "group": "ML Sys",
+   "university": "",
+   "institution": "",
+   "x": "",
+   "github": "",
+   "site": "https://hal.example",
+   "status": "Done: summary saved",
+   "fit": "Strong",
+   "track": "Kernels/GPU",
+   "fitReason": "Writes about GPU kernels",
+   "relevance": "GPU systems",
+   "note": "",
+   "file": "ML Sys/Hal Systems.docx",
+   "company": ""
+  },
+  {
+   "id": "test-3",
+   "name": "Ivy Triton",
+   "group": "Kernel GitHub DB",
+   "university": "",
+   "institution": "",
+   "x": "",
+   "github": "",
+   "site": "https://ivy.example",
+   "status": "Done: summary saved",
+   "fit": "Strong",
+   "track": "Kernels/GPU",
+   "fitReason": "Writes about GPU kernels",
+   "relevance": "GPU systems",
+   "note": "",
+   "file": "Kernel GitHub DB/Ivy Triton.docx",
+   "company": ""
+  }
+ ],
+ "docs": [
+  {
+   "candidate": "test-1",
+   "name": "Gina Gpu",
+   "university": "",
+   "group": "OpenAI",
+   "id": "test-1--home",
+   "title": "Gina's blog on GPU kernels",
+   "url": "https://gina.example",
+   "platform": "Personal website",
+   "type": "Homepage / about page",
+   "date": "",
+   "year": null,
+   "blocks": [
+    [
+     "p",
+     "I write CUDA kernels and GPU performance notes."
+    ],
+    [
+     "p",
+     "Recent posts cover warp shuffles and memory coalescing."
+    ]
+   ]
+  },
+  {
+   "candidate": "test-1",
+   "name": "Gina Gpu",
+   "university": "",
+   "group": "OpenAI",
+   "id": "test-1--summary",
+   "title": "Gina Gpu: research summary",
+   "url": "https://gina.example",
+   "platform": "Personal website",
+   "type": "Research summary",
+   "date": "",
+   "year": null,
+   "blocks": [
+    [
+     "p",
+     "Strong GPU kernel engineer at OpenAI who blogs about CUDA."
+    ]
+   ]
+  },
+  {
+   "candidate": "test-2",
+   "name": "Hal Systems",
+   "university": "",
+   "group": "ML Sys",
+   "id": "test-2--home",
+   "title": "Hal on compilers",
+   "url": "https://hal.example",
+   "platform": "Personal website",
+   "type": "Homepage / about page",
+   "date": "",
+   "year": null,
+   "blocks": [
+    [
+     "p",
+     "Notes on machine learning compilers, MLIR and GPU code generation."
+    ]
+   ]
+  },
+  {
+   "candidate": "test-3",
+   "name": "Ivy Triton",
+   "university": "",
+   "group": "Kernel GitHub DB",
+   "id": "test-3--post",
+   "title": "Post: Writing Triton kernels",
+   "url": "https://ivy.example/triton",
+   "platform": "Personal website",
+   "type": "Blog post / article",
+   "date": "",
+   "year": null,
+   "blocks": [
+    [
+     "p",
+     "A walkthrough of Triton GPU kernels for attention."
+    ]
+   ]
+  },
+  {
+   "candidate": "test-3",
+   "name": "Ivy Triton",
+   "university": "",
+   "group": "Kernel GitHub DB",
+   "id": "test-3--external",
+   "title": "Ivy Triton: personal site",
+   "url": "https://ivy.example",
+   "platform": "Personal website",
+   "type": "External link",
+   "date": "",
+   "year": null,
+   "blocks": []
+  }
+ ]
+}
