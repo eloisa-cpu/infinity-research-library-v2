@@ -1,0 +1,41 @@
+# Checks that GitHub Actions can sign in to Google with Workload Identity Federation (no keys) and read the
+# Drive archive as the read-only service account. It builds and publishes nothing.
+# Run it from the Actions tab: "Verify Drive access" > Run workflow.
+name: Verify Drive access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write      # lets the job request GitHub's OIDC token for Workload Identity Federation
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DRIVE_ROOT_FOLDER_ID: ${{ vars.DRIVE_ROOT_FOLDER_ID || '1TbckZTHb2sbKMZDyskcgt0uczTfimXnI' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the GitHub variables
+        run: |
+          missing=0
+          for v in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT; do
+            [ -n "${!v}" ] && echo "set: $v" || { echo "::error::Repository variable $v is not set (Settings > Secrets and variables > Actions > Variables)"; missing=1; }
+          done
+          exit $missing
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - name: Authenticate to Google Cloud (Workload Identity Federation, no keys)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests google-auth
+      - name: Check read access to the Drive archive
+        run: python3 tools/verify_drive_access.py
