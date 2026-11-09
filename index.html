@@ -93,6 +93,11 @@
   .excerpt.sem { border-left: 2px solid var(--accent-soft); padding-left: 8px; }
   .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--code); color: var(--muted); margin-left: 6px; vertical-align: 2px; font-weight: 500; }
   .tag.ext { background: var(--ext-soft); color: var(--ext); }
+  a.tag:hover { text-decoration: none; filter: brightness(0.95); }
+  .readlink { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600; }
+  .evidence .readlink { margin-top: 2px; font-weight: 500; }
+  .fulltext-h { font-size: 18px; margin: 24px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .fulltext-h small { font-size: 13px; font-weight: 400; margin-left: 8px; }
   .tag.semhit { background: var(--accent-soft); color: var(--accent); }
   .more { display: block; margin: 16px auto; padding: 8px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
   .empty { color: var(--muted); padding: 30px 0; }
@@ -383,7 +388,19 @@ async function start(interactive) {
 async function load() {
   const l = () => document.getElementById("loading");
   if (l()) l().textContent = "Loading the library…";
-  const idx = await secureJSON("manifest.enc");
+  let idx;
+  try { idx = await secureJSON("manifest.enc"); }
+  catch (e) {
+    if (/manifest\.enc: HTTP 404/.test(e.message)) {
+      $app.innerHTML = `<div class="error"><strong>Signed in. The search index has not been built yet.</strong><br>
+        The index is created by the <em>Build library</em> GitHub Actions workflow from the Google Drive archive and published to
+        GitHub Pages; it is not part of the repository files. In the repository: run <em>Actions → Verify Drive access</em>,
+        then set the variable <code>LIBRARY_BUILD_ENABLED</code> to <code>true</code>, set <em>Settings → Pages → Source</em> to
+        <em>GitHub Actions</em>, and run <em>Actions → Build library</em>. See README.md (Deployment).</div>`;
+      return;
+    }
+    throw e;
+  }
   S.index = idx; S.sources = idx.sources;
   STOP = new Set(idx.semantic.stopwords);
   S.groupSource = new Map(S.sources.flatMap(s => s.groups.map(g => [g, s.id])));
@@ -1002,9 +1019,16 @@ function fitBadge(c) {
 }
 const misTag = d => d.attribution === "Needs Review"
   ? `<span class="tag ext" title="${esc(d.attributionNote || "The researcher match for this paper is uncertain (unconfirmed author identity or possible misattribution)")}">⚠ Needs Review</span>` : "";
-function availTag(d) {
-  return isExternal(d) ? `<span class="tag ext" title="Full text is not stored in the library; opens the original source">↗ External link only</span>`
-    : `<span class="tag" title="The full text is stored in the library">Full text in library</span>`;
+function availTag(d, href) {
+  href = href || `#/doc/${encodeURIComponent(d.id)}`;
+  return isExternal(d) ? `<a class="tag ext" href="${href}" title="Full text is not stored in the library; opens the original source">↗ External link only</a>`
+    : `<a class="tag" href="${href}" title="Open the full text">📄 Full text in library</a>`;
+}
+// the action under each result: read the full text (from Google Drive for papers) or go to the original source
+function readLink(d, href) {
+  href = href || `#/doc/${encodeURIComponent(d.id)}`;
+  return isExternal(d) ? `<a class="readlink" href="${href}">Go to the original source ↗</a>`
+    : `<a class="readlink" href="${href}">📄 Read the full text${d.fmt === "pdf" ? " (PDF)" : ""} →</a>`;
 }
 
 // ------------------------------------------------------------------ search page
@@ -1250,7 +1274,7 @@ function personCard(p, terms, regs, hlRegs, q, hitInfo, mode) {
   const c = p.c, qs = q ? "?q=" + encodeURIComponent(q) : "", key = STORE.key("c", c.id);
   const evidence = p.docs.slice(0, 3).map(([d]) => { const h = hitInfo.get(d.id); return `<div class="evidence">
       <a href="${docHref(d, q, h)}">${highlight(d.title, hlRegs)}</a><span class="tag">${esc(d.type)}</span>${isExternal(d) ? availTag(d) : ""}${misTag(d)}${h?.sem && !h.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}
-      ${q ? excerptHtml(d, hlRegs, h, 1) : ""}</div>`; }).join("");
+      ${q ? excerptHtml(d, hlRegs, h, 1) : ""}${readLink(d, docHref(d, q, h))}</div>`; }).join("");
   const semOnly = p.docs.every(([d]) => !hitInfo.get(d.id)?.kw);
   return `<article class="result person">
     <div class="person-head">
@@ -1281,11 +1305,12 @@ function metaLine(d, withName = true) {
 function resultCard(d, regs, q, hit) {
   const key = STORE.key("d", d.id);
   return `<article class="result" data-src="${esc(d.source)}">
-    <div class="person-head"><h3><a href="${docHref(d, q, hit)}">${highlight(d.title, regs)}</a><span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}${hit?.sem && !hit.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}</h3>${actions(key)}</div>
+    <div class="person-head"><h3><a href="${docHref(d, q, hit)}">${highlight(d.title, regs)}</a><span class="tag">${esc(d.type)}</span>${availTag(d, docHref(d, q, hit))}${misTag(d)}${hit?.sem && !hit.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}</h3>${actions(key)}</div>
     ${metaLine(d)}
     ${d.authors ? `<div class="meta"><span>Authors: ${highlight(d.authors.length > 220 ? d.authors.slice(0, 220) + "…" : d.authors, regs)}</span></div>` : ""}
     ${tagRow(key)}
     ${excerptHtml(d, regs, hit)}
+    ${readLink(d, docHref(d, q, hit))}
   </article>`;
 }
 
@@ -1370,6 +1395,7 @@ function renderDoc(id, params) {
       ${driveLink ? `<dt>Archive file</dt><dd>${driveLink}</dd>` : c.file ? `<dt>Archive file</dt><dd>${esc(c.file)}</dd>` : ""}
     </dl>
     ${d.type === "Research summary" ? `<p class="notice">Written by the Infinity research team when reviewing this candidate’s site; not the candidate’s own writing.</p>` : ""}
+    <h2 class="fulltext-h" id="fulltext">Full text${driveLink ? ` <small>${driveLink}</small>` : ""}</h2>
     <div id="doctext"><div class="loading" style="padding:30px 0">${d.drive ? "Opening the paper from Google Drive…" : "Loading…"}</div></div>
     ${moreFrom}
   </div>`;
@@ -1454,7 +1480,7 @@ function renderCandidate(id, params) {
     <ul class="doclist">${docs.map(([d, sc]) => { const dk = STORE.key("d", d.id); return `<li${q && !sc ? ' class="dim"' : ""}><div class="person-head"><div><a href="#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}"><strong>${highlight(d.title, regs)}</strong></a> <span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}</div>${actions(dk)}</div>
       <div class="meta"><span>${esc(d.platform)}</span>${d.date ? `<span>${esc(d.date)}</span>` : ""}${isExternal(d) || !d.len ? "" : `<span>${d.len.toLocaleString()} indexed words</span>`}${d.fmt === "pdf" ? "<span>PDF</span>" : ""}</div>
       ${tagRow(dk)}
-      ${sc && d.snippet ? `<p class="excerpt">${highlight(d.snippet, regs)}</p>` : ""}</li>`; }).join("")}</ul>
+      ${sc && d.snippet ? `<p class="excerpt">${highlight(d.snippet, regs)}</p>` : ""}${readLink(d, `#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}`)}</li>`; }).join("")}</ul>
   </div>`;
   scrollTo(0, 0);
 }
