@@ -1,0 +1,564 @@
+{
+ "about": "Search-quality test topics. Each topic is a search a recruiter might type ('q') and the evidence a relevant paper's text would contain ('evidence': words or quoted phrases). A document counts as relevant when its full text matches at least 'minHits' different evidence items. These are automatic ('silver') judgements: they catch regressions and compare search modes, they are not a substitute for human review. Add or edit topics freely; no code changes are needed. Topics marked 'paraphrase' are worded without the evidence words, to test meaning search.",
+ "topics": [
+  {
+   "q": "GPU kernel optimization",
+   "evidence": [
+    "cuda",
+    "\"gpu kernel\"",
+    "triton",
+    "cutlass",
+    "\"tensor core\"",
+    "\"shared memory\"",
+    "warp",
+    "\"kernel fusion\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "writing CUDA kernels by hand",
+   "evidence": [
+    "cuda",
+    "\"thread block\"",
+    "\"shared memory\"",
+    "warp",
+    "\"memory coalescing\"",
+    "occupancy",
+    "ptx"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "fast attention implementation",
+   "evidence": [
+    "flashattention",
+    "\"flash attention\"",
+    "softmax",
+    "\"attention kernel\"",
+    "\"io-aware\"",
+    "\"shared memory\"",
+    "tiling"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "making LLM inference faster",
+   "evidence": [
+    "\"kv cache\"",
+    "\"speculative decoding\"",
+    "batching",
+    "latency",
+    "throughput",
+    "quantization",
+    "\"inference serving\"",
+    "\"paged attention\""
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "LLM serving systems",
+   "evidence": [
+    "\"kv cache\"",
+    "batching",
+    "\"serving system\"",
+    "latency",
+    "throughput",
+    "scheduler",
+    "vllm",
+    "\"continuous batching\""
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "model quantization",
+   "evidence": [
+    "quantization",
+    "int8",
+    "int4",
+    "\"low-bit\"",
+    "\"post-training quantization\"",
+    "\"quantization-aware\"",
+    "fp8"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "compilers for machine learning",
+   "evidence": [
+    "compiler",
+    "mlir",
+    "tvm",
+    "xla",
+    "\"intermediate representation\"",
+    "\"operator fusion\"",
+    "\"code generation\"",
+    "lowering"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "MLIR and tensor compilers",
+   "evidence": [
+    "mlir",
+    "dialect",
+    "\"tensor compiler\"",
+    "lowering",
+    "tvm",
+    "halide",
+    "\"loop tiling\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "distributed training of large models",
+   "evidence": [
+    "\"data parallel\"",
+    "\"pipeline parallel\"",
+    "\"tensor parallel\"",
+    "\"model parallel\"",
+    "allreduce",
+    "\"zero redundancy\"",
+    "\"gradient synchronization\"",
+    "nccl"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "mixture of experts",
+   "evidence": [
+    "\"mixture of experts\"",
+    "\"mixture-of-experts\"",
+    "moe",
+    "\"expert parallel\"",
+    "router",
+    "\"gating network\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "reinforcement learning from human feedback",
+   "evidence": [
+    "rlhf",
+    "\"reward model\"",
+    "\"human feedback\"",
+    "ppo",
+    "\"preference\"",
+    "dpo"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "reinforcement learning for reasoning",
+   "evidence": [
+    "\"reinforcement learning\"",
+    "reasoning",
+    "\"chain of thought\"",
+    "\"reward\"",
+    "\"policy gradient\"",
+    "grpo"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "scaling laws",
+   "evidence": [
+    "\"scaling law\"",
+    "\"scaling laws\"",
+    "\"compute-optimal\"",
+    "\"power law\"",
+    "\"model size\"",
+    "chinchilla"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "large language model pretraining",
+   "evidence": [
+    "pretraining",
+    "\"language model\"",
+    "tokens",
+    "transformer",
+    "\"next-token\"",
+    "corpus"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "mechanistic interpretability",
+   "evidence": [
+    "interpretability",
+    "\"sparse autoencoder\"",
+    "circuits",
+    "\"feature\"",
+    "\"residual stream\"",
+    "probing",
+    "\"attention heads\""
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "AI alignment and safety",
+   "evidence": [
+    "alignment",
+    "\"ai safety\"",
+    "\"red teaming\"",
+    "jailbreak",
+    "\"reward hacking\"",
+    "\"constitutional\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "efficient transformers long context",
+   "evidence": [
+    "\"long context\"",
+    "\"sparse attention\"",
+    "\"linear attention\"",
+    "\"state space\"",
+    "mamba",
+    "\"context length\"",
+    "rope"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "hardware accelerators for deep learning",
+   "evidence": [
+    "accelerator",
+    "asic",
+    "fpga",
+    "systolic",
+    "\"dataflow\"",
+    "tpu",
+    "\"energy efficiency\""
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "computer architecture memory systems",
+   "evidence": [
+    "dram",
+    "cache",
+    "\"memory bandwidth\"",
+    "hbm",
+    "\"memory hierarchy\"",
+    "prefetch"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "high performance computing",
+   "evidence": [
+    "\"high performance computing\"",
+    "hpc",
+    "mpi",
+    "supercomputer",
+    "\"parallel computing\"",
+    "openmp",
+    "scalability"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "sparse matrix multiplication",
+   "evidence": [
+    "\"sparse matrix\"",
+    "spmm",
+    "spmv",
+    "sparsity",
+    "\"matrix multiplication\"",
+    "gemm"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "numerical linear algebra",
+   "evidence": [
+    "\"linear algebra\"",
+    "eigenvalue",
+    "\"matrix factorization\"",
+    "\"singular value\"",
+    "preconditioner",
+    "\"iterative solver\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "operating systems and distributed systems",
+   "evidence": [
+    "\"distributed system\"",
+    "consensus",
+    "\"fault tolerance\"",
+    "replication",
+    "\"operating system\"",
+    "rpc"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "datacenter networking",
+   "evidence": [
+    "datacenter",
+    "\"data center\"",
+    "rdma",
+    "\"congestion control\"",
+    "infiniband",
+    "\"network topology\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "program synthesis and code generation with LLMs",
+   "evidence": [
+    "\"program synthesis\"",
+    "\"code generation\"",
+    "\"code llm\"",
+    "humaneval",
+    "\"large language model\"",
+    "\"unit tests\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "formal verification",
+   "evidence": [
+    "\"formal verification\"",
+    "\"theorem prover\"",
+    "coq",
+    "lean",
+    "isabelle",
+    "\"model checking\"",
+    "smt"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "diffusion models for image generation",
+   "evidence": [
+    "diffusion",
+    "\"denoising\"",
+    "\"score-based\"",
+    "\"image generation\"",
+    "\"latent diffusion\"",
+    "unet"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "computer vision object detection",
+   "evidence": [
+    "\"object detection\"",
+    "\"bounding box\"",
+    "segmentation",
+    "\"convolutional neural network\"",
+    "imagenet",
+    "\"vision transformer\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "speech recognition",
+   "evidence": [
+    "\"speech recognition\"",
+    "asr",
+    "acoustic",
+    "\"word error rate\"",
+    "audio",
+    "\"speech\""
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "robot learning",
+   "evidence": [
+    "robot",
+    "manipulation",
+    "\"imitation learning\"",
+    "\"policy\"",
+    "\"sim-to-real\"",
+    "locomotion"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "graph neural networks",
+   "evidence": [
+    "\"graph neural network\"",
+    "gnn",
+    "\"message passing\"",
+    "\"node classification\"",
+    "\"graph convolution\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "recommender systems at scale",
+   "evidence": [
+    "\"recommender system\"",
+    "recommendation",
+    "\"embedding table\"",
+    "\"click-through\"",
+    "\"collaborative filtering\"",
+    "dlrm"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "privacy preserving machine learning",
+   "evidence": [
+    "\"differential privacy\"",
+    "\"federated learning\"",
+    "\"secure aggregation\"",
+    "\"homomorphic\"",
+    "\"membership inference\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "optimization algorithms for deep learning",
+   "evidence": [
+    "\"stochastic gradient\"",
+    "adam",
+    "\"learning rate\"",
+    "convergence",
+    "\"second-order\"",
+    "\"loss landscape\""
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "quantitative finance machine learning",
+   "evidence": [
+    "\"asset pricing\"",
+    "portfolio",
+    "\"stock returns\"",
+    "trading",
+    "\"market microstructure\"",
+    "volatility"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "protein structure prediction",
+   "evidence": [
+    "protein",
+    "\"structure prediction\"",
+    "alphafold",
+    "\"amino acid\"",
+    "folding"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "making chatbots respond quicker",
+   "paraphrase": true,
+   "evidence": [
+    "\"kv cache\"",
+    "\"speculative decoding\"",
+    "latency",
+    "throughput",
+    "batching",
+    "inference"
+   ],
+   "minHits": 3
+  },
+  {
+   "q": "spreading training across many GPUs",
+   "paraphrase": true,
+   "evidence": [
+    "\"data parallel\"",
+    "\"pipeline parallel\"",
+    "\"tensor parallel\"",
+    "\"model parallel\"",
+    "allreduce",
+    "nccl"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "squeezing neural networks onto phones",
+   "paraphrase": true,
+   "evidence": [
+    "quantization",
+    "pruning",
+    "\"model compression\"",
+    "distillation",
+    "\"edge devices\"",
+    "mobile"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "computers that check mathematical proofs",
+   "paraphrase": true,
+   "evidence": [
+    "\"theorem prover\"",
+    "\"proof assistant\"",
+    "lean",
+    "coq",
+    "isabelle",
+    "\"formal verification\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "understanding what happens inside neural networks",
+   "paraphrase": true,
+   "evidence": [
+    "interpretability",
+    "\"sparse autoencoder\"",
+    "circuits",
+    "probing",
+    "\"attention heads\"",
+    "\"residual stream\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "AI that writes software",
+   "paraphrase": true,
+   "evidence": [
+    "\"code generation\"",
+    "\"program synthesis\"",
+    "humaneval",
+    "\"code llm\"",
+    "\"unit tests\""
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "teaching robots by showing them what to do",
+   "paraphrase": true,
+   "evidence": [
+    "\"imitation learning\"",
+    "demonstrations",
+    "\"behavior cloning\"",
+    "robot",
+    "manipulation"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "helpful bacteria in the digestive system",
+   "paraphrase": true,
+   "evidence": [
+    "microbiome",
+    "probiotic",
+    "gut",
+    "microbiota"
+   ],
+   "minHits": 2
+  },
+  {
+   "q": "measuring poverty from space",
+   "paraphrase": true,
+   "evidence": [
+    "\"nighttime lights\"",
+    "satellite",
+    "poverty",
+    "income"
+   ],
+   "minHits": 2
+  }
+ ]
+}
