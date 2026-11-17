@@ -82,8 +82,8 @@ def year_of(date):
 
 
 def cand_id(rid):
-    rid = rid.upper()
-    return ("top50-" if rid.startswith("C") else "uni-") + rid.lower()
+    """Stable researcher id: Top 50 list ids keep their old form (saved bookmarks stay valid)."""
+    return ("top50-" if re.fullmatch(r"C\d+", rid, re.I) else "uni-") + rid.lower()
 
 
 def read_record(path):
@@ -178,22 +178,26 @@ def main():
     # ------------------------------------------------------------ papers from the Drive archive
     researchers = json.load(open(os.path.join(args.cache, "researchers.json"))) if os.path.exists(os.path.join(args.cache, "researchers.json")) else []
     for r in researchers:
-        rm = re.match(r"^(?P<name>.+?) \((?P<id>[A-Za-z]?\d+)\)$", r["folder"])
-        if not rm:
-            continue
-        rid = rm.group("id").upper(); cid = cand_id(rid)
-        candidates.setdefault(cid, {
-            "id": cid, "name": rm.group("name"), "group": "Top 50 Publications" if rid.startswith("C") else "University Research Papers",
+        if "key" not in r:          # cache written by an older version of drive_sync
+            from libcore import parse_researcher_folder
+            r.update(parse_researcher_folder(r["folder"], r["univ"]))
+        rid = r["key"]; cid = cand_id(rid)
+        c = candidates.setdefault(cid, {
+            "id": cid, "name": r["name"], "group": "Top 50 Publications" if r["match"] == "Top 50 list" else "University Research Papers",
             "university": r["univ"], "institution": r["univ"], "source": "university", "x": "", "github": "", "site": "",
-            "status": "", "fit": "", "track": "", "fitReason": "", "relevance": "", "note": "",
-            "openalex": f"https://openalex.org/{rid}" if rid.startswith("A") else "", "driveFolder": r["id"], "researcherKey": rid, "docs": []})
+            "status": "", "fit": "", "track": "", "fitReason": "", "relevance": "", "note": "", "match": r["match"],
+            "openalex": f"https://openalex.org/{rid}" if r["match"] == "OpenAlex" else "",
+            "orcid": "https://orcid.org/" + rid[6:] if r["match"] == "ORCID" else "", "driveFolder": r["id"], "researcherKey": rid, "docs": []})
+        c.setdefault("driveFolders", [])
+        if r["id"] not in c["driveFolders"]:
+            c["driveFolders"].append(r["id"])          # the same researcher can have several folders ("Name (1)")
     recs.sort(key=lambda r: (cand_id(r["rid"]), r["n"], r["ext"] != "md", r["sub"], r["id"]))
     used_ids = set()
     paper_docs = []
     order = list(range(len(blog_docs)))          # job index of each document, in document order
     for r in recs:
         cid = cand_id(r["rid"])
-        c = candidates.setdefault(cid, {"id": cid, "name": r["researcher"], "group": "Top 50 Publications" if r["rid"].startswith("C") else "University Research Papers",
+        c = candidates.setdefault(cid, {"id": cid, "name": r["researcher"], "group": "Top 50 Publications" if r.get("match") == "Top 50 list" or re.fullmatch(r"C\d+", r["rid"]) else "University Research Papers", "match": r.get("match", ""),
                                         "university": r["univ"], "institution": r["univ"], "source": "university", "x": "", "github": "", "site": "",
                                         "status": "", "fit": "", "track": "", "fitReason": "", "relevance": "", "note": "", "docs": []})
         did = f"{cid}--p{r['n']:03d}"
@@ -239,32 +243,39 @@ def main():
     del idx_terms
     T = np.concatenate([idx_ids[j] for j in order]) if N else np.zeros(0, np.int32)
     F = np.concatenate([idx_tf[j] for j in order]) if N else np.zeros(0, np.uint8)
-    D = np.repeat(np.arange(N, dtype=np.int64), [len(idx_ids[j]) for j in order])
+    D = np.repeat(np.arange(N, dtype=np.int32), [len(idx_ids[j]) for j in order])
     del idx_ids, idx_tf
     df = np.bincount(T, minlength=len(terms))
-    shard_of = np.fromiter((fnv1a(t) % POST_SHARDS for t in terms), np.int32, len(terms))
-    o = np.lexsort((D, T, shard_of[T]))           # by shard, then word, then document
-    T, D, F = T[o], D[o], F[o]
-    del o
-    bounds = np.searchsorted(shard_of[T], np.arange(POST_SHARDS + 1))
+    shard_of = np.fromiter((fnv1a(t) % POST_SHARDS for t in terms), np.int16, len(terms))
     log(f"keyword index: {len(terms):,} words, {len(T):,} postings; writing {POST_SHARDS} shards")
-    post_bytes = 0
-    for s in range(POST_SHARDS):
-        a, b = bounds[s], bounds[s + 1]
-        t, d, f = T[a:b], D[a:b], F[a:b]
-        if b > a:
-            starts = np.flatnonzero(np.r_[True, t[1:] != t[:-1]])
-            uniq, counts = t[starts], np.diff(np.r_[starts, len(t)])
-            prev = np.r_[-1, d[:-1]]; prev[starts] = -1
-            vals = np.empty(2 * len(t), np.uint64)
-            vals[0::2] = d - prev - 1; vals[1::2] = f
-            payload = varint_np(vals).tobytes()
-            header = {"terms": [terms[u] for u in uniq], "n": counts.tolist()}
-        else:
-            payload, header = b"", {"terms": [], "n": []}
-        blob = pack(header, payload)
-        write(f"post-{s:04d}.enc", blob); post_bytes += len(blob)
-    del T, D, F
+    # Shards are written in groups, so only one group's postings are sorted at a time (memory stays low for very
+    # large collections). Postings are already in document order, so a stable sort by word keeps documents ordered.
+    post_bytes, GROUPS = 0, 16
+    TS = shard_of[T]
+    for g in range(GROUPS):
+        lo, hi = g * POST_SHARDS // GROUPS, (g + 1) * POST_SHARDS // GROUPS
+        sel = np.flatnonzero((TS >= lo) & (TS < hi))
+        gt, gd, gf, gs = T[sel], D[sel], F[sel], TS[sel]
+        o = np.lexsort((gt, gs))                 # by shard, then word; stable, so documents stay in order
+        gt, gd, gf, gs = gt[o], gd[o].astype(np.int64), gf[o], gs[o]
+        bounds = np.searchsorted(gs, np.arange(lo, hi + 1))
+        for s in range(lo, hi):
+            a, b = bounds[s - lo], bounds[s - lo + 1]
+            t, d, f = gt[a:b], gd[a:b], gf[a:b]
+            if b > a:
+                starts = np.flatnonzero(np.r_[True, t[1:] != t[:-1]])
+                uniq, counts = t[starts], np.diff(np.r_[starts, len(t)])
+                prev = np.r_[-1, d[:-1]]; prev[starts] = -1
+                vals = np.empty(2 * len(t), np.uint64)
+                vals[0::2] = d - prev - 1; vals[1::2] = f
+                payload = varint_np(vals).tobytes()
+                header = {"terms": [terms[u] for u in uniq], "n": counts.tolist()}
+            else:
+                payload, header = b"", {"terms": [], "n": []}
+            blob = pack(header, payload)
+            write(f"post-{s:04d}.enc", blob); post_bytes += len(blob)
+        del sel, gt, gd, gf, gs, o
+    del T, D, F, TS
 
     # vocabulary by word start, for prefix queries
     vgroups = collections.defaultdict(list)
