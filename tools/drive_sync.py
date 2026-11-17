@@ -38,6 +38,7 @@ WORKERS = int(os.environ.get("DRIVE_WORKERS", "8"))
 # Large first syncs may not fit in one GitHub Actions run (6-hour limit). With a budget, downloading stops cleanly
 # when it runs out; progress is kept in the cache and the next run continues. sync_status.json says whether the
 # cache now holds the complete archive (the workflow only publishes a complete index).
+RETRY_BASE = float(os.environ.get("DRIVE_RETRY_BASE", "1"))      # first pause before a retry, in seconds (doubles each time)
 BUDGET_MIN = float(os.environ.get("DRIVE_SYNC_BUDGET_MINUTES", "0") or 0)
 
 
@@ -91,10 +92,22 @@ def session():
 
 
 def get(url, params=None, stream=False):
+    """GET with retries: Google sometimes drops a connection or answers "busy" on long crawls; both are retried with a
+    growing pause (and a fresh connection), so one hiccup no longer stops the run."""
+    import requests
     for attempt in range(8):
-        r = session().get(url, params=params, timeout=120, stream=stream)
+        try:
+            r = session().get(url, params=params, timeout=120, stream=stream)
+            if not stream:
+                r.content                      # read the whole answer now, so a connection cut mid-download is retried too
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.ChunkedEncodingError) as e:
+            if attempt == 7:
+                raise
+            print(f"  connection problem ({type(e).__name__}); retrying in {min(60, RETRY_BASE * 2 ** attempt):.0f}s", flush=True)
+            _local.__dict__.pop("s", None)
+            time.sleep(min(60, RETRY_BASE * 2 ** attempt)); continue
         if r.status_code in (429, 500, 502, 503, 504) or (r.status_code == 403 and "rate" in r.text.lower()):
-            time.sleep(min(60, 2 ** attempt)); continue
+            time.sleep(min(60, RETRY_BASE * 2 ** attempt)); continue
         if r.status_code == 401 and attempt < 2:
             _local.__dict__.pop("s", None); continue
         r.raise_for_status()
