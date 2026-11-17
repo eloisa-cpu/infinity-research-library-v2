@@ -9,7 +9,9 @@ Output directory (default site/) is what GitHub Pages serves:
   data/post-NNNN.enc       full-text keyword index: postings for the terms hashed to this shard
   data/vocab-NNN.enc       vocabulary grouped by word start (prefix search: quantiz*)
   data/terms-NN.enc        meaning index: word vectors (LSA)
-  data/docvec-<src>-N.enc  meaning index: one vector per document
+  data/docvec-<src>-N.enc  meaning index: one vector per document (LSA; used when the AI model cannot load)
+  data/embvec-<src>-N.enc  AI meaning index: one bge-small vector per document (title + abstract), see tools/models.py
+  models/, vendor/transformers/   the meaning model and its browser runtime (open-source, fingerprint-checked)
   data/blogtext-N.enc      blog documents' text (blogs are not in the Drive archive)
 
 Full texts of papers are NOT copied: the site fetches each paper from Google Drive when it is opened.
@@ -25,6 +27,8 @@ from sklearn.utils.extmath import randomized_svd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from libcore import (encrypt, decrypt, key_from_keyfile, index_counts, semantic_counts, fnv1a, STOPWORDS)  # noqa: E402
+import models  # noqa: E402
+from models import doc_text  # noqa: E402
 
 T0 = time.time()
 
@@ -111,7 +115,7 @@ def analyse(job):
         title, authors, name, text = payload
     ic = index_counts(" ".join([title, authors, name, text]))
     sc = semantic_counts(" ".join([title, title, authors, text[:SEM_MAX_CHARS]]))
-    return r, ic, sum(ic.values()), sc
+    return r, ic, sum(ic.values()), sc, doc_text(title, text)
 
 
 def varint_np(vals):
@@ -130,12 +134,71 @@ def varint_np(vals):
     return out
 
 
+_EMB = None
+
+
+def _emb_init(dest):
+    global _EMB
+    _EMB = models.Embedder(dest, threads=1)
+
+
+def _emb_run(texts):
+    return _EMB.embed(texts)
+
+
+def build_embeddings(args, docs, texts, write):
+    """One AI meaning vector per document. Vectors are cached by text, so a build only computes new or changed ones."""
+    import hashlib
+    models.ensure(args.models)
+    os.makedirs(args.emb_cache, exist_ok=True)
+    kp, vp = os.path.join(args.emb_cache, "keys.json"), os.path.join(args.emb_cache, "vecs.npy")
+    cache = {}
+    if os.path.exists(kp) and os.path.exists(vp):
+        ks, vs = json.load(open(kp)), np.load(vp)
+        if len(ks) == len(vs):
+            cache = dict(zip(ks, vs))
+    keys = [hashlib.sha1((models.MODEL_REVISION + "\n" + t).encode("utf-8")).hexdigest() for t in texts]
+    todo = sorted({k: t for k, t in zip(keys, texts) if k not in cache}.items())
+    log(f"AI meaning index: {len(texts) - len([k for k in keys if k not in cache]):,} vectors reused, {len(todo):,} to compute")
+    def save(keep):
+        tmpk, tmpv = kp + ".tmp", vp + ".tmp.npy"
+        json.dump(keep, open(tmpk, "w"))
+        np.save(tmpv, np.stack([cache[k] for k in keep]).astype(np.float16) if keep else np.zeros((0, models.DIM), np.float16))
+        os.replace(tmpv, vp); os.replace(tmpk, kp)
+    if todo:
+        chunks = [todo[i:i + 64] for i in range(0, len(todo), 64)]
+        done = 0
+        with mp.Pool(args.workers, initializer=_emb_init, initargs=(args.models,)) as pool:
+            for chunk, vecs in zip(chunks, pool.imap(_emb_run, [[t for _, t in c] for c in chunks])):
+                for (k, _), v in zip(chunk, vecs):
+                    cache[k] = v.astype(np.float16)
+                done += len(chunk)
+                if done % 2048 < 64 or done == len(todo):
+                    log(f"  computed {done:,}/{len(todo):,} vectors")
+                if done % 4096 < 64:
+                    save(list(cache))           # progress survives an interrupted build
+    V = np.stack([cache[k].astype(np.float32) for k in keys]) if keys else np.zeros((0, models.DIM), np.float32)
+    save(list(dict.fromkeys(keys)))     # keep only vectors of documents that still exist
+    shards = []
+    for s in SOURCES:
+        idx = [d["i"] for d in docs if d["source"] == s["id"]]
+        for p in range(0, len(idx), VEC_CHUNK):
+            part = idx[p:p + VEC_CHUNK]
+            name = f"embvec-{s['id']}-{p // VEC_CHUNK + 1}"
+            write(name + ".enc", pack({"docs": part}, quantize(V[part])))
+            shards.append({"name": name, "source": s["id"], "rows": len(part)})
+    return {"model": models.MODEL_ID, "revision": models.MODEL_REVISION, "dim": models.DIM, "queryPrefix": models.QUERY_PREFIX,
+            "dtype": "q8", "shards": shards, "modelBase": "models/", "runtime": "vendor/transformers/"}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default=os.environ.get("CACHE_DIR", ".cache/drive"))
     ap.add_argument("--out", default="site")
     ap.add_argument("--blogs", default=os.path.join(ROOT, "data", "blogs.enc"), help="encrypted blog data (see tools/encrypt_blogs.py)")
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 2)
+    ap.add_argument("--models", default=os.environ.get("MODELS_DIR", ".cache/models"), help="where the meaning model is kept between builds")
+    ap.add_argument("--emb-cache", default=os.environ.get("EMB_CACHE_DIR", ".cache/embeddings"), help="document vectors kept between builds")
     args = ap.parse_args()
     key = key_from_keyfile(open(os.path.join(args.cache, "keyfile.bin"), "rb").read())
 
@@ -162,9 +225,10 @@ def main():
 
     # ------------------------------------------------------------ one pass over every document (each is read once)
     idx_terms, sem_terms = {}, {}
-    idx_ids, idx_tf, sem_ids, sem_cnt, lengths, recs = [], [], [], [], [], []
+    idx_ids, idx_tf, sem_ids, sem_cnt, lengths, recs, emb_texts = [], [], [], [], [], [], []
     with mp.Pool(args.workers) as pool:
-        for j, (r, ic, n, sc) in enumerate(pool.imap(analyse, jobs, chunksize=8)):
+        for j, (r, ic, n, sc, et) in enumerate(pool.imap(analyse, jobs, chunksize=8)):
+            emb_texts.append(et)
             idx_ids.append(np.fromiter((idx_terms.setdefault(t, len(idx_terms)) for t in ic), np.int32, len(ic)))
             idx_tf.append(np.fromiter((min(c, 255) for c in ic.values()), np.uint8, len(ic)))
             sem_ids.append(np.fromiter((sem_terms.setdefault(t, len(sem_terms)) for t in sc), np.int32, len(sc)))
@@ -358,12 +422,21 @@ def main():
         for did in chunk:
             bf[did] = f"blogtext-{k + 1}"
 
+    # ------------------------------------------------------------ AI meaning index (bge-small; only new/changed texts are computed)
+    embed = None
+    if os.environ.get("LIBRARY_EMBEDDINGS", "1") != "0":
+        try:
+            embed = build_embeddings(args, docs, [emb_texts[order[i]] for i in range(N)], write)
+        except Exception as e:      # the site still works: meaning search then uses the LSA index
+            log(f"AI meaning index skipped: {e}")
+
     manifest = {
         "version": 2, "built": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         "docCount": N, "paperCount": len(paper_docs), "candidateCount": len(candidates), "sources": SOURCES,
         "metaFiles": meta_files, "postShards": POST_SHARDS, "vocabShards": VOCAB_SHARDS,
         "avgLen": sum(lengths) / max(1, N), "blogText": bf,
         "semantic": {"dim": dim, "termShards": TERM_SHARDS, "docShards": vec_shards, "stopwords": STOPWORDS},
+        **({"embed": embed} if embed else {}),
         "stats": {"terms": n_terms, "postings": n_postings,
                   "papersFullText": sum(d["availability"] == "Locally Archived" for d in paper_docs),
                   "papersExternal": sum(d["availability"] != "Locally Archived" for d in paper_docs),
@@ -373,6 +446,10 @@ def main():
     write("manifest.enc", json.dumps(manifest, ensure_ascii=False).encode("utf-8"))
     for f in ("index.html", "config.json"):
         shutil.copy(os.path.join(ROOT, f), os.path.join(out, f))
+    if embed:
+        models.install_into_site(args.models, out)
+    if os.path.isdir(os.path.join(ROOT, "vendor")):          # pdf.js: reads PDF text in the browser for search-result passages
+        shutil.copytree(os.path.join(ROOT, "vendor"), os.path.join(out, "vendor"), dirs_exist_ok=True)
     open(os.path.join(out, ".nojekyll"), "w").close()
     total = sum(os.path.getsize(os.path.join(out, "data", f)) for f in os.listdir(os.path.join(out, "data")))
     print(f"site written to {out}/: {len(os.listdir(os.path.join(out, 'data')))} data files, {total / 1e6:.1f} MB")
