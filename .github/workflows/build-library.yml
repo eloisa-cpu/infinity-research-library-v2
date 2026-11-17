@@ -29,10 +29,14 @@ jobs:
   build:
     if: vars.LIBRARY_BUILD_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 355
+    outputs:
+      complete: ${{ steps.sync.outputs.complete }}
     env:
       PYTHONUNBUFFERED: "1"        # show progress lines immediately in the Actions log
       CACHE_DIR: .cache/drive
+      # stop downloading after 4.5 hours so the cache is always saved; the next run continues
+      DRIVE_SYNC_BUDGET_MINUTES: "270"
       DRIVE_ROOT_FOLDER_ID: ${{ vars.DRIVE_ROOT_FOLDER_ID || '1TbckZTHb2sbKMZDyskcgt0uczTfimXnI' }}
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +59,7 @@ jobs:
           key: drive-cache-${{ github.run_id }}
           restore-keys: drive-cache-
       - name: Sync from Google Drive (new and changed papers only)
+        id: sync
         run: python3 tools/drive_sync.py
       - name: Save the Drive text cache
         if: always()
@@ -62,16 +67,24 @@ jobs:
         with:
           path: .cache/drive
           key: drive-cache-${{ github.run_id }}
+      - name: Archive not fully downloaded yet
+        if: steps.sync.outputs.complete != 'true'
+        run: |
+          echo "::notice::The Drive archive is still being downloaded (progress saved). The website keeps its current index; the next run continues. $(cat .cache/drive/sync_status.json)"
       - name: Build the encrypted index
+        if: steps.sync.outputs.complete == 'true'
         timeout-minutes: 90
         run: python3 tools/build_index.py --out site
       - uses: actions/configure-pages@v5
+        if: steps.sync.outputs.complete == 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.sync.outputs.complete == 'true'
         with:
           path: site
 
   deploy:
     needs: build
+    if: needs.build.outputs.complete == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
