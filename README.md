@@ -100,6 +100,38 @@ identity token, Google exchanges it for temporary credentials of the read-only s
 
 Site URL: `https://eloisa-cpu.github.io/<repository>/`
 
+## Meaning search (AI model)
+
+Smart and Meaning searches use an open-source text-embedding model, **bge-small-en-v1.5** (BAAI, MIT licence), to find
+papers about the same idea even when they use different words.
+
+- **Documents**: on the build server, each paper's title and abstract (or opening text) is turned into a vector. Vectors
+  are cached between builds, so only new or changed papers are processed (first build: roughly 20–30 extra minutes).
+- **Searches**: turned into a vector in each person's browser, with the same model, served from this site
+  (`models/`, `vendor/transformers/`). Nothing is sent to any outside service. The model and its runtime (about 60 MB)
+  download once per browser and are cached.
+- **Safety**: the build downloads the model from Hugging Face and the browser runtime (transformers.js) from npm, each
+  pinned to an exact version and checked against SHA-256 fingerprints recorded in `tools/models.py`; a mismatch is refused.
+  The model file is ONNX (numbers only, no code).
+- **Fallback**: if the model cannot load (very old browser) or the build could not prepare it, meaning search uses the
+  older word-association (LSA) index and says so. The Search quality report compares both engines at every build.
+- To build without the model: set the repository variable or environment `LIBRARY_EMBEDDINGS=0`.
+
+## Search quality and library health
+
+Each build runs the site's own search on the real library (`tools/search_eval.js`, headless browser) and publishes an
+encrypted report, visible to signed-in users at **Search quality** (link on the search page, `#/quality`):
+
+- **Known papers**: papers sampled from the library are searched by exact title, by a few distinctive words from their
+  opening text ("describe it", in each search mode), and by title in the people view (is their researcher found?).
+- **Topics**: recruiter-style searches from `eval/topics.json`, judged automatically (a paper is relevant when its text
+  contains enough of the topic's evidence words). Edit that file to add your team's real searches; no code changes needed.
+- **Speed**, and **library health**: missing years/authors/venues, papers without searchable text, Needs Review,
+  duplicate papers under one researcher, possible duplicate researchers.
+- A history of headline numbers across builds, to see whether changes help.
+
+Only headline numbers (no titles or names) go to the public Actions run summary. The measurement never blocks publishing.
+
 ## Managing access
 
 * **Grant**: share the *University Publications* Drive folder with the person (Viewer is enough).

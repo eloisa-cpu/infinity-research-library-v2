@@ -91,6 +91,24 @@
   .excerpt::before { content: "… "; color: var(--muted); }
   .excerpt::after { content: " …"; color: var(--muted); }
   .excerpt.sem { border-left: 2px solid var(--accent-soft); padding-left: 8px; }
+  .passage { max-width: 760px; background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; margin: 8px 0 0; font-size: 14px; }
+  .passage .plabel { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0 10px; }
+  .passage .plabel strong { color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .passage blockquote { margin: 3px 0 0; padding: 2px 0 2px 10px; border-left: 3px solid var(--accent); color: var(--text); overflow-wrap: anywhere; }
+  .passage.sem blockquote { border-left-style: dashed; }
+  .passage .pgo { font-size: 13px; margin-left: 10px; white-space: nowrap; }
+  .passage .pnote { color: var(--muted); font-style: italic; margin: 0; }
+  .passage.pending .pnote::before { content: "⏳ "; font-style: normal; }
+  .passage details { margin-top: 6px; }
+  .passage details summary { font-size: 13px; color: var(--accent); cursor: pointer; }
+  .passage details .pmore { margin-top: 8px; }
+  .qtable { border-collapse: collapse; font-size: 14px; margin: 6px 0 18px; }
+  .qtable th, .qtable td { text-align: left; padding: 5px 12px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .qtable th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .qtable td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .qgood { color: #15803d; font-weight: 600; } .qmid { color: #b45309; font-weight: 600; } .qbad { color: #b91c1c; font-weight: 600; }
+  .tag.partial { background: #fef3c7; color: #92400e; }
+  .doc .target { background: var(--accent-soft); outline: 6px solid var(--accent-soft); border-radius: 2px; }
   .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--code); color: var(--muted); margin-left: 6px; vertical-align: 2px; font-weight: 500; }
   .tag.ext { background: var(--ext-soft); color: var(--ext); }
   a.tag:hover { text-decoration: none; filter: brightness(0.95); }
@@ -120,8 +138,6 @@
   .infobox dt { color: var(--muted); }
   .infobox dd { margin: 0; overflow-wrap: anywhere; }
   .notice { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 10px; margin: 0 0 16px; max-width: 760px; }
-  .passage { max-width: 760px; background: var(--accent-soft); border-radius: 8px; padding: 10px 14px; margin: 0 0 18px; font-size: 14px; }
-  .passage strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); margin-bottom: 2px; }
   .extnotice { max-width: 760px; background: var(--ext-soft); border: 1px solid var(--ext); border-radius: 10px; padding: 14px 16px; margin: 12px 0 18px; }
   .extnotice p { margin: 0 0 10px; }
   .extnotice .url { font-size: 13px; overflow-wrap: anywhere; color: var(--muted); }
@@ -416,6 +432,8 @@ async function load() {
     S.byId.set(d.id, d);
   }
   S.loaded = true;
+  // fetch the meaning model in the background once the library is open (from the browser cache after the first time)
+  if (S.index.embed) { const go = () => loadEmbedder().catch(() => {}); window.requestIdleCallback ? requestIdleCallback(go, { timeout: 3000 }) : setTimeout(go, 1500); }
   updateStats();
   route();
   SYNC.start();
@@ -561,24 +579,49 @@ async function termScores(t) {
   }
   return acc;
 }
-// whole query -> { scores: Map(doc -> score), cover: Map(termText -> Set(doc)) }
+// whole query -> { scores: Map(doc -> score), cover: Map(termText -> Set(doc)), partial: Map(doc -> { score, matched, of, missing }) }
+// scores: documents with every word (of at least one OR group). partial: documents with most of the words, used by
+// "Exact words" when few documents have them all: at least half of the words (and at least 2). They are listed by how
+// many words they have, then by the words' rarity (rare words weigh more, so "CUDA kernel" beats "writing hand").
 async function keywordSearch(groups) {
-  const scores = new Map(), cover = new Map(), cache = new Map(), neg = new Set();
+  const scores = new Map(), cover = new Map(), cache = new Map(), neg = new Set(), partial = new Map(), absent = new Set();
   const ts = async t => { if (!cache.has(t.text)) cache.set(t.text, await termScores(t)); return cache.get(t.text); };
+  const N = S.docs.length;
   for (const g of groups) {
     let acc = null;
+    const terms = [];
     for (const t of g.filter(t => !t.neg)) {
       const m = await ts(t);
       if (m === null) continue;
+      terms.push([t, m]);
       if (!cover.has(t.text)) cover.set(t.text, new Set(m.keys()));
       if (acc === null) acc = new Map(m);
       else { const nx = new Map(); for (const [d, s] of acc) if (m.has(d)) nx.set(d, s + m.get(d)); acc = nx; }
     }
     if (!acc) continue;
-    for (const t of g.filter(t => t.neg)) { const m = await ts(t); if (m) for (const d of m.keys()) { acc.delete(d); neg.add(d); } }
+    const negs = [];
+    for (const t of g.filter(t => t.neg)) { const m = await ts(t); if (m) { negs.push(m); for (const d of m.keys()) { acc.delete(d); neg.add(d); } } }
     for (const [d, s] of acc) scores.set(d, Math.max(scores.get(d) || 0, s));
+    // words that occur nowhere in the library (unusual wording, spelling variants) cannot be matched: they are left out
+    const present = terms.filter(([, m]) => m.size);
+    for (const [t, m] of terms) if (!m.size) absent.add(t.text);
+    if (terms.length >= 3 || (terms.length === 2 && present.length === 1)) {
+      const w = terms.map(([, m]) => m.size ? Math.log(1 + (N - m.size + 0.5) / (m.size + 0.5)) : 0);
+      const total = w.reduce((a, b) => a + b, 0);
+      const need = Math.max(Math.min(2, present.length), Math.ceil(present.length / 2));
+      const part = new Map();
+      terms.forEach(([, m], k) => { for (const [d, s] of m) { if (acc.has(d) || negs.some(n => n.has(d))) continue;
+        const p = part.get(d) || { score: 0, matched: 0, weight: 0, has: [] }; p.score += s; p.matched++; p.weight += w[k]; p.has.push(k); part.set(d, p); } });
+      for (const [d, p] of part) {
+        if (p.matched < need) continue;
+        const prev = partial.get(d);
+        const rec = { score: p.score, matched: p.matched, of: terms.length, weight: p.weight / total, missing: terms.filter((_, k) => !p.has.includes(k)).map(([t]) => t.text) };
+        if (!prev || rec.weight > prev.weight) partial.set(d, rec);
+      }
+    }
   }
-  return { scores, cover, neg };
+  for (const d of scores.keys()) partial.delete(d);
+  return { scores, cover, neg, partial, absent: [...absent] };
 }
 
 // ------------------------------------------------------------------ meaning search (one LSA vector per document)
@@ -639,6 +682,78 @@ async function semSearch(text, src) {
   hits.sort((a, b) => b.score - a.score);
   return { hits, known, unknown, shards: shards.length, total: sem.docShards.length };
 }
+// ------------------------------------------------------------------ AI meaning search (bge-small embedding model)
+// The library's papers were turned into "meaning coordinates" (vectors) on the build server; a search is turned into
+// coordinates here, in the browser, with the same open-source model served from this site (models/, vendor/transformers/).
+// Nothing is sent anywhere. The model (~60 MB with its runtime) downloads once and is kept in the browser's cache.
+// If it cannot load, meaning search falls back to the older word-association (LSA) index.
+const EMB = { status: "idle", pipe: null, error: "", files: new Map(), cache: new Map() };
+window.IRL_EMB = EMB;
+function embAvailable() { return !!S.index?.embed && EMB.status !== "failed"; }
+function loadEmbedder() {
+  if (!S.index?.embed) return Promise.reject(new Error("no AI meaning index"));
+  if (!EMB.promise) {
+    EMB.status = "loading";
+    const e = S.index.embed, abs = p => new URL(p, location.href).href;
+    EMB.promise = import(abs(e.runtime + "transformers.min.js")).then(async T => {
+      T.env.allowRemoteModels = false;
+      T.env.allowLocalModels = true;
+      T.env.localModelPath = abs(e.modelBase);
+      T.env.useBrowserCache = true;
+      T.env.backends.onnx.wasm.wasmPaths = abs(e.runtime);
+      T.env.backends.onnx.wasm.numThreads = 1;
+      EMB.pipe = await T.pipeline("feature-extraction", e.model, { dtype: e.dtype || "q8", device: "wasm" });
+      EMB.status = "ready";
+      return EMB.pipe;
+    }).catch(err => { EMB.status = "failed"; EMB.error = err.message || String(err); console.error("AI meaning model unavailable:", err); throw err; });
+  }
+  return EMB.promise;
+}
+// texts -> unit vectors (Float32Array). Searches get the model's query instruction; passages are embedded as they are.
+async function embedTexts(texts, asQuery) {
+  const pipe = await loadEmbedder();
+  const pre = asQuery ? S.index.embed.queryPrefix || "" : "";
+  const out = [];
+  for (let i = 0; i < texts.length; i += 8) {
+    const t = await pipe(texts.slice(i, i + 8).map(x => pre + x), { pooling: "cls", normalize: true });
+    const dim = t.dims[t.dims.length - 1];
+    for (let r = 0; r < t.dims[0]; r++) out.push(t.data.slice(r * dim, (r + 1) * dim));
+  }
+  return out;
+}
+function embQuery(text) {
+  if (!EMB.cache.has(text)) EMB.cache.set(text, embedTexts([text], true).then(v => v[0]).catch(e => { EMB.cache.delete(text); throw e; }));
+  return EMB.cache.get(text);
+}
+function embShard(name) {
+  if (!EMB.files.has(name)) EMB.files.set(name, securePack(name + ".enc").then(({ header, payload }) => {
+    const dim = S.index.embed.dim, n = header.docs.length;
+    return { header, n, scales: new Float32Array(payload, 0, n), q: new Int8Array(payload, n * 4, n * dim) };
+  }).catch(e => { EMB.files.delete(name); throw e; }));
+  return EMB.files.get(name);
+}
+async function embSearch(text, src) {
+  const e = S.index.embed, dim = e.dim;
+  const shards = e.shards.filter(s => src === "all" || s.source === src);
+  const [vec, loaded] = await Promise.all([embQuery(text), Promise.all(shards.map(s => embShard(s.name)))]);
+  const hits = [];
+  for (const sh of loaded) for (let r = 0; r < sh.n; r++) {
+    let dot = 0; const off = r * dim;
+    for (let j = 0; j < dim; j++) dot += sh.q[off + j] * vec[j];
+    const d = S.docs[sh.header.docs[r]];
+    if (d) hits.push({ id: d.id, score: dot * sh.scales[r] });
+  }
+  hits.sort((a, b) => b.score - a.score);
+  return { hits, known: ["model"], unknown: [], shards: shards.length, total: e.shards.length, engine: "ai" };
+}
+// meaning search: the AI model when this library has its index and the browser can run it, otherwise LSA
+async function meaningSearch(text, src, group, engine) {
+  if (engine !== "lsa" && embAvailable()) {
+    try { return await embSearch(text, src); } catch (e) { console.error(e); }
+  }
+  const r = await semSearch(text, src, group);
+  return { ...r, engine: "lsa" };
+}
 function semText(groups) { return groups.flat().filter(t => !t.neg).map(t => t.text.replace(/\*$/, "")).join(" "); }
 
 // both engines, cached per query; the search page re-renders when results arrive
@@ -688,6 +803,288 @@ function externalLine(d) {
   return `Hosted externally at ${d.url || "the original publisher"}${c?.relevance ? ". Research team: " + c.relevance : ""}`;
 }
 
+// ------------------------------------------------------------------ relevant passages in search results
+// The search index records which words each document contains, not where they occur. The passage that made a result
+// relevant is found when the result appears on screen: the paper is read from Google Drive (the same file the reader
+// opens; no extra copy is stored), split into paragraphs with their section heading and page, and the paragraph window
+// that best matches the search is shown in the paper's own words.
+//   keyword matches: the window with the most distinct search words, closest together (reference lists count less)
+//   meaning matches: the window whose meaning-index vector is closest to the search (same vectors as meaning search)
+const PASS = { units: new Map(), found: new Map(), queue: [], running: 0, io: null };
+const PDF_CACHE = new Map();
+function pdfBytes(d) {
+  if (!PDF_CACHE.has(d.id)) {
+    PDF_CACHE.set(d.id, driveFile(d.drive, "arrayBuffer").catch(e => { PDF_CACHE.delete(d.id); throw e; }));
+    while (PDF_CACHE.size > 12) PDF_CACHE.delete(PDF_CACHE.keys().next().value);   // keep the most recent few in memory
+  }
+  return PDF_CACHE.get(d.id);
+}
+let PDFJS = null;
+function loadPdfjs() {
+  if (!PDFJS) PDFJS = import(new URL("vendor/pdfjs/pdf.min.mjs", location.href).href).then(m => {
+    m.GlobalWorkerOptions.workerSrc = new URL("vendor/pdfjs/pdf.worker.min.mjs", location.href).href; return m;
+  }).catch(e => { PDFJS = null; throw e; });
+  return PDFJS;
+}
+const SECTION_NAMES = /^(abstract|introduction|background|motivation|related work|preliminaries|problem (statement|formulation)|methods?|methodology|approach|model|design|implementation|system( design| overview)?|experiments?( setup| results)?|experimental (setup|results)|evaluation|results( and discussion)?|analysis|discussion|limitations|future work|conclusions?( and future work)?|summary|acknowledge?ments?|references|bibliography|appendix( [a-z])?|supplementary material)$/i;
+const SECTION_NUMBERED = /^((\d{1,2}(\.\d{1,2}){0,3}\.?)|([IVX]{1,5}\.)|([A-H]\.))\s+[A-Z][^.!?]{1,70}$/;
+function isPdfHeading(line) {
+  const t = line.trim();
+  if (t.length < 4 || t.length > 80) return false;
+  return SECTION_NAMES.test(t.replace(/^((\d{1,2}(\.\d{1,2}){0,3}\.?)|([IVX]{1,5}\.))\s+/, "").replace(/[:.]$/, "")) ||
+    (SECTION_NUMBERED.test(t) && t.split(/\s+/).length <= 9 && !/\d{3,}/.test(t.replace(/^\S+\s+/, "")));
+}
+// PDF -> paragraphs [{ text, sec, page }] using the PDF's own text layer (no OCR: scanned pages have no text)
+async function pdfUnits(d) {
+  const [lib, bytes] = await Promise.all([loadPdfjs(), pdfBytes(d)]);
+  const doc = await lib.getDocument({ data: new Uint8Array(bytes.slice(0)), isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
+  const units = []; let sec = "";
+  try {
+    for (let pn = 1; pn <= Math.min(doc.numPages, 150); pn++) {
+      const page = await doc.getPage(pn);
+      const tc = await page.getTextContent();
+      const lines = []; let cur = null;
+      for (const it of tc.items) {
+        if (it.str === undefined) continue;
+        const y = it.transform[5], h = Math.abs(it.height || it.transform[3] || 10);
+        if (!cur || (cur.eol && it.str.trim()) || Math.abs(y - cur.y) > h * 0.6) { if (cur && cur.text.trim()) lines.push(cur); cur = { text: "", y, h, eol: false }; }
+        cur.text += it.str; cur.eol = !!it.hasEOL;
+      }
+      if (cur && cur.text.trim()) lines.push(cur);
+      const gaps = lines.slice(1).map((l, i) => Math.abs(lines[i].y - l.y)).filter(g => g > 0).sort((a, b) => a - b);
+      const gap = gaps.length ? gaps[gaps.length >> 1] : 12;
+      let para = null;
+      const flush = () => { if (para && para.text.trim()) units.push({ text: para.text.replace(/\s+/g, " ").trim(), sec, page: pn }); para = null; };
+      lines.forEach((l, i) => {
+        const t = l.text.replace(/\s+/g, " ").trim();
+        if (isPdfHeading(t)) { flush(); sec = t.replace(/[:.]$/, ""); return; }
+        const brk = i > 0 && Math.abs(lines[i - 1].y - l.y) > gap * 1.45;
+        if (brk) flush();
+        if (!para) para = { text: t };
+        else para.text = /[A-Za-z]-$/.test(para.text) ? para.text + t : para.text + " " + t;   // a line-end hyphen stays as printed
+      });
+      flush();
+      page.cleanup();
+    }
+  } finally { doc.destroy(); }
+  return { units, pages: doc.numPages };
+}
+// Markdown papers and blog documents: the reader's own blocks, so passages line up with what "open at passage" shows
+async function blockUnits(d) {
+  const { blocks } = await docContent(d);
+  const units = []; let sec = "";
+  const title = (d.title || "").trim().toLowerCase();
+  blocks.forEach(([kind, text], i) => {
+    if (kind === "h") { if (text.trim().toLowerCase() !== title) sec = text.trim(); return; }
+    if (text.trim() && text.trim().toLowerCase() !== title) units.push({ text: kind === "pre" ? text : text.replace(/\s+/g, " ").trim(), sec, block: i, pre: kind === "pre" });
+  });
+  return { units };
+}
+function docUnits(d) {
+  if (!PASS.units.has(d.id)) {
+    PASS.units.set(d.id, (d.drive && d.fmt === "pdf" ? pdfUnits(d) : blockUnits(d)).catch(e => { PASS.units.delete(d.id); throw e; }));
+    while (PASS.units.size > 60) PASS.units.delete(PASS.units.keys().next().value);
+  }
+  return PASS.units.get(d.id);
+}
+// a paragraph -> windows of whole sentences, about 200-420 characters each
+function windowsOf(u, ui) {
+  const t = u.text, out = [];
+  if (u.pre) { out.push({ ui, a: 0, b: Math.min(t.length, 420) }); return out; }
+  const ends = []; const re = /[.!?]["”’)\]]?\s+(?=["“(\[]?[A-Z0-9])/g; let m;
+  while ((m = re.exec(t))) ends.push(m.index + m[0].length);
+  ends.push(t.length);
+  let start = 0;
+  for (let i = 0; i < ends.length; i++) {
+    let e = i;
+    while (e + 1 < ends.length && ends[e + 1] - start <= 420) e++;
+    out.push({ ui, a: start, b: ends[e] });
+    if (ends[e] === t.length) break;
+    start = ends[i];
+  }
+  return out;
+}
+const isBackMatter = sec => /^(\S+\s+)?(references|bibliography|acknowledge?ments?)$/i.test(sec || "");
+function keywordPassages(units, regs) {
+  const wins = [];
+  units.forEach((u, ui) => {
+    for (const w of windowsOf(u, ui)) {
+      const s = u.text.slice(w.a, w.b);
+      let distinct = 0, sum = 0; const first = [], last = [];
+      for (const re of regs) {
+        re.lastIndex = 0; let n = 0, m, f = -1, l = -1;
+        while ((m = re.exec(s))) { if (!m[0].length) { re.lastIndex++; continue; } n++; if (f < 0) f = m.index; l = m.index; }
+        if (n) { distinct++; sum += Math.log2(1 + n); first.push(f); last.push(l); }
+      }
+      if (!distinct) continue;
+      let score = distinct * 10 + sum;
+      if (distinct > 1) score += 6 * distinct / (1 + (Math.max(...first) - Math.min(...first)) / 150);
+      if (isBackMatter(u.sec)) score *= 0.3;
+      if (u.pre) score *= 0.6;
+      if (s.length < 60) score *= 0.7;
+      wins.push({ ...w, score, distinct });
+    }
+  });
+  return pickPassages(wins, units);
+}
+let SEM_ALL_TERMS = null;
+function semAllTerms() {
+  if (!SEM_ALL_TERMS) SEM_ALL_TERMS = Promise.all(Array.from({ length: S.index.semantic.termShards }, (_, k) => semShard("terms-" + String(k).padStart(2, "0"), "terms")))
+    .catch(e => { SEM_ALL_TERMS = null; throw e; });
+  return SEM_ALL_TERMS;
+}
+const SEM_Q = new Map();
+function semQueryVec(text) { if (!SEM_Q.has(text)) SEM_Q.set(text, semEmbedQuery(text)); return SEM_Q.get(text); }
+async function meaningPassages(units, text) {
+  // shortlist with the word-association index (fast), then let the AI model choose among the shortlist
+  const lsa = await lsaPassageWindows(units, text).catch(() => null);
+  if (embAvailable()) {
+    try {
+      let cands = lsa?.length ? lsa.slice(0, 24) : [];
+      if (!cands.length) units.forEach((u, ui) => { if (!u.pre && cands.length < 40) for (const w of windowsOf(u, ui)) if (cands.length < 40) cands.push({ ...w, score: 0 }); });
+      if (!cands.length) return null;
+      const [qv, pv] = await Promise.all([embQuery(text), embedTexts(cands.map(w => units[w.ui].text.slice(w.a, w.b)), false)]);
+      const scored = cands.map((w, k) => { let dot = 0; for (let j = 0; j < qv.length; j++) dot += qv[j] * pv[k][j]; return { ...w, score: dot - (isBackMatter(units[w.ui].sec) ? 0.1 : 0) }; });
+      return pickPassages(scored, units).filter(p => p.score > 0.35);
+    } catch (e) { console.error(e); }
+  }
+  if (!lsa) return null;
+  return pickPassages(lsa, units).filter(p => p.score > 0.05);
+}
+// every paragraph window scored by the LSA index (best first); null when no search word is in that index
+async function lsaPassageWindows(units, text) {
+  const [{ vec }, shards] = await Promise.all([semQueryVec(text), semAllTerms()]);
+  if (!vec) return null;
+  const dim = S.index.semantic.dim, sem = S.index.semantic, wins = [];
+  units.forEach((u, ui) => {
+    if (u.pre) return;
+    for (const w of windowsOf(u, ui)) {
+      const counts = new Map();
+      for (const t of semTokenize(u.text.slice(w.a, w.b))) counts.set(t, (counts.get(t) || 0) + 1);
+      if (counts.size < 6) continue;
+      const v = new Float32Array(dim);
+      for (const [t, c] of counts) {
+        const sh = shards[fnv1a(t) % sem.termShards], i = sh.index.get(t);
+        if (i === undefined) continue;
+        const wt = (1 + Math.log(c)) * sh.header.idf[i] * sh.scales[i], off = i * dim;
+        for (let j = 0; j < dim; j++) v[j] += wt * sh.q[off + j];
+      }
+      let dot = 0, nn = 0;
+      for (let j = 0; j < dim; j++) { dot += v[j] * vec[j]; nn += v[j] * v[j]; }
+      if (!nn) continue;
+      let score = dot / Math.sqrt(nn);
+      if (isBackMatter(u.sec)) score -= 0.3;
+      wins.push({ ...w, score });
+    }
+  });
+  // best first, one window per paragraph
+  wins.sort((a, b) => b.score - a.score);
+  const seen = new Set();
+  return wins.filter(w => !seen.has(w.ui) && seen.add(w.ui));
+}
+// strongest windows first; one per paragraph so "more passages" shows different places in the paper
+function pickPassages(wins, units) {
+  wins.sort((a, b) => b.score - a.score);
+  const seen = new Set(), out = [];
+  for (const w of wins) {
+    if (seen.has(w.ui)) continue;
+    seen.add(w.ui);
+    const u = units[w.ui];
+    out.push({ text: u.text.slice(w.a, w.b).trim(), more: [w.a > 0, w.b < u.text.length], sec: u.sec, page: u.page, block: u.block, score: w.score, pre: u.pre });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+// what a search result needs: the strongest passages and how they were chosen
+function findPassages(d, q, mode, kwHit) {
+  const key = d.id + "\n" + mode + "\n" + q;
+  if (!PASS.found.has(key)) PASS.found.set(key, (async () => {
+    const { units } = await docUnits(d);
+    if (!units.length || units.reduce((n, u) => n + u.text.length, 0) < 20) return { none: d.fmt === "pdf" ? "pdf-no-text" : "no-text" };
+    const groups = parseQuery(q);
+    const filler = t => !t.phrase && (STOP.has(t.text.toLowerCase()) || (mode === "hybrid" && SEM.stop?.has(t.text.toLowerCase())));
+    const regs = groups.flat().filter(t => !t.neg && !filler(t)).map(t => t.re);
+    if (mode !== "semantic" && kwHit && regs.length) {
+      const kw = keywordPassages(units, regs);
+      if (kw.length) return { kind: "kw", list: kw };
+    }
+    if (mode === "keyword") return { none: "metadata-only" };
+    const mp = await meaningPassages(units, semText(groups));
+    if (mp?.length) return { kind: "sem", list: mp, metaOnly: !!kwHit && mode !== "semantic" };
+    return { none: kwHit ? "metadata-only" : "no-match" };
+  })().catch(e => ({ error: e })));
+  while (PASS.found.size > 400) PASS.found.delete(PASS.found.keys().next().value);
+  return PASS.found.get(key);
+}
+// placeholder in the result card; the passage is filled in when the card is on screen
+function passageSlot(d, q, mode, hit) {
+  if (!q || isExternal(d) || !(d.drive || S.index.blogText?.[d.id])) return excerptHtml(d, []);
+  const kw = mode !== "semantic" && !!hit?.kw;
+  return `<div class="passage pending" data-pdoc="${esc(d.id)}" data-pq="${esc(q)}" data-pmode="${esc(mode)}" data-pkw="${kw ? 1 : ""}"><p class="pnote">Finding the relevant passage${d.fmt === "pdf" ? " in the PDF" : ""}…</p></div>`;
+}
+function passageHref(d, q, p) {
+  const u = new URLSearchParams();
+  if (q) u.set("q", q);
+  if (p.block !== undefined) u.set("at", p.block);
+  if (p.page) u.set("page", p.page);
+  return `#/doc/${encodeURIComponent(d.id)}?${u}`;
+}
+function onePassage(d, q, p, regs) {
+  const where = [p.sec ? `<span class="psec">Section: ${esc(p.sec)}</span>` : "", p.page ? `<span>Page ${p.page}</span>` : ""].filter(Boolean).join("");
+  const body = (p.more[0] ? "…" : "") + highlight(p.text, regs) + (p.more[1] ? "…" : "");
+  return `<blockquote>${p.pre ? `<span style="white-space:pre-wrap">${body}</span>` : body}<a class="pgo" href="${passageHref(d, q, p)}">Open at this passage →</a></blockquote>${where ? `<div class="plabel">${where}</div>` : ""}`;
+}
+function passageResultHtml(d, q, mode, r) {
+  const regs = positiveRegexes(parseQuery(q));
+  if (r.error) return `<div class="passage"><p class="pnote">The relevant passage could not be loaded (${esc(r.error.status === 403 || r.error.status === 404 || r.error.message === "no-access" ? "your Google account cannot open this file" : r.error.message)}). Open the paper to read it.</p></div>`;
+  if (r.none) return `<div class="passage"><p class="pnote">${{
+    "pdf-no-text": "No passage can be shown: this PDF has no readable text layer (it may be a scanned image).",
+    "no-text": "No passage can be shown: this document has no readable text.",
+    "metadata-only": "Your search words appear in the title, author list or details of this paper, not in its text.",
+    "no-match": "No single passage stands out for this search; open the paper to read it.",
+  }[r.none]}</p></div>`;
+  const [best, ...rest] = r.list;
+  const label = r.kind === "kw" ? `<strong>Relevant passage</strong>`
+    : `<strong title="No passage uses your exact words; this one is closest in meaning to your search">Closest passage by meaning</strong>${r.metaOnly ? "<span>(your exact words appear only in the title or details)</span>" : ""}`;
+  return `<div class="passage${r.kind === "sem" ? " sem" : ""}"><div class="plabel">${label}</div>${onePassage(d, q, best, regs)}
+    ${rest.length ? `<details><summary>${rest.length} more ${r.kind === "kw" ? "matching" : "related"} passage${rest.length === 1 ? "" : "s"}</summary>${rest.map(p => `<div class="pmore">${onePassage(d, q, p, regs)}</div>`).join("")}</details>` : ""}</div>`;
+}
+function hydratePassages() {
+  const slots = document.querySelectorAll(".passage.pending[data-pdoc]:not([data-pwait])");
+  if (!slots.length) return;
+  if (!PASS.io) PASS.io = new IntersectionObserver(entries => {
+    for (const e of entries) if (e.isIntersecting) { PASS.io.unobserve(e.target); PASS.queue.push(e.target); }
+    pumpPassages();
+  }, { rootMargin: "300px 0px" });
+  for (const el of slots) {
+    el.dataset.pwait = "1";
+    const d = S.byId.get(el.dataset.pdoc), key = d && d.id + "\n" + el.dataset.pmode + "\n" + el.dataset.pq;
+    const done = d && PASS.found.get(key);
+    if (done?.settled) { fillPassage(el, done.settled); continue; }
+    PASS.io.observe(el);
+  }
+}
+function fillPassage(el, html) { if (el.isConnected) el.outerHTML = html; }
+function pumpPassages() {
+  while (PASS.running < 3 && PASS.queue.length) {
+    const el = PASS.queue.shift();
+    if (!el.isConnected) continue;
+    const d = S.byId.get(el.dataset.pdoc);
+    if (!d) continue;
+    const { pq, pmode, pkw } = el.dataset;
+    PASS.running++;
+    const pr = findPassages(d, pq, pmode, !!pkw);
+    pr.then(r => {
+      const html = passageResultHtml(d, pq, pmode, r);
+      pr.settled = html;
+      fillPassage(el, html);
+      // the same paper may be shown again (re-render) in a new placeholder
+      document.querySelectorAll(".passage.pending[data-pdoc]").forEach(x => { if (x.dataset.pdoc === d.id && x.dataset.pq === pq && x.dataset.pmode === pmode) fillPassage(x, html); });
+    }).finally(() => { PASS.running--; pumpPassages(); });
+  }
+}
+window.IRL_PASS = PASS;
+
 // ------------------------------------------------------------------ opening documents
 // Papers: the archive file is fetched from Google Drive when opened (Markdown is rendered, PDFs are shown inline).
 // Blog documents: their text ships with the site (encrypted).
@@ -720,7 +1117,7 @@ function mdToBlocks(body) {
 function docContent(d) {
   if (!DOCTEXT.has(d.id)) {
     let p;
-    if (d.drive && d.fmt === "pdf") p = driveFile(d.drive, "blob").then(b => ({ pdf: URL.createObjectURL(new Blob([b], { type: "application/pdf" })) }));
+    if (d.drive && d.fmt === "pdf") p = pdfBytes(d).then(b => ({ pdf: URL.createObjectURL(new Blob([b], { type: "application/pdf" })) }));
     else if (d.drive) p = driveFile(d.drive, "text").then(t => ({ blocks: mdToBlocks(parseArchiveMd(t)) }));
     else p = secureJSON((S.index.blogText[d.id] || "") + ".enc").then(j => ({ blocks: j[d.id] || [] }));
     DOCTEXT.set(d.id, p.catch(e => { DOCTEXT.delete(d.id); throw e; }));
@@ -742,6 +1139,7 @@ window.addEventListener("hashchange", () => { closeTagPop(true); route(); });
 
 function route() {
   if (!S.loaded) return;
+  queueMicrotask(hydratePassages);
   const { parts, params } = parseHash();
   let view = parts[0] || "search";
   if (view === "shortlist") view = "saved";
@@ -752,6 +1150,7 @@ function route() {
   if (view === "candidate") return renderCandidate(parts[1], params);
   if (view === "browse") return renderBrowse(params);
   if (view === "saved") return renderSaved(params);
+  if (view === "quality") return renderQuality();
   return renderSearch(params);
 }
 
@@ -1056,12 +1455,13 @@ function renderSearch(params) {
   const useSem = hasQuery && mode !== "keyword";
   if (useSem) {
     const text = semText(groups);
-    const key = `${src}|${filters.group || ""}|${text.toLowerCase()}`;
+    const engine = params.get("engine") === "lsa" ? "lsa" : "auto";
+    const key = `${src}|${filters.group || ""}|${engine}|${text.toLowerCase()}`;
     sem = SEM.results.get(key);
     if (!sem) {
       SEM.results.set(key, { pending: true });
       const hash = location.hash;
-      semSearch(text, src, filters.group).then(r => { SEM.results.set(key, r); })
+      meaningSearch(text, src, filters.group, engine).then(r => { SEM.results.set(key, r); })
         .catch(e => { SEM.results.set(key, { error: e.message }); console.error(e); })
         .then(() => {
           if (location.hash !== hash || POP) return;
@@ -1075,21 +1475,37 @@ function renderSearch(params) {
         });
       sem = SEM.results.get(key);
     }
-    if (sem.pending) semNote = `<span class="semstate">Searching by meaning…</span>`;
+    if (sem.pending) semNote = `<span class="semstate">${EMB.status === "loading" ? "Preparing meaning search (one-time download of the AI model, about 60 MB)…" : "Searching by meaning…"}</span>`;
     else if (sem.error) semNote = `<span class="semstate err">Meaning search unavailable (${esc(sem.error)}); showing exact matches.</span>`;
     else if (!sem.known.length) semNote = `<span class="semstate">None of these words are in the meaning index; showing exact matches.</span>`;
-    else semNote = `<span class="semstate" title="Index files downloaded so far: ${SEM.stats.docShards.size} passage + ${SEM.stats.termShards.size} word files">Meaning search over ${sem.shards} of ${sem.total} index files</span>`;
+    else if (sem.engine === "ai") semNote = `<span class="semstate" title="Open-source model bge-small-en-v1.5, run in this browser">Meaning search: AI model</span>`;
+    else semNote = `<span class="semstate" title="Index files downloaded so far: ${SEM.stats.docShards.size} passage + ${SEM.stats.termShards.size} word files">Meaning search: word associations${S.index.embed && EMB.status === "failed" ? " (the AI model could not load in this browser)" : ""}</span>`;
   }
   const semReady = sem && sem.hits && sem.known.length;
 
   // ---- keyword pass over the full-text index (async, cached; negative terms also filter the meaning results)
   const kw = new Map();
   let kwr = null, kwNote = "";
+  const kwPartial = new Map();
+  const passesAll = d => facets.every(f => !filters[f.key] || f.get(d) === filters[f.key]);
   if (hasQuery) {
     kwr = cachedSearch(KW, q.trim(), () => keywordSearch(groups));
     if (kwr.pending) kwNote = `<span class="semstate">Searching the full text…</span>`;
     else if (kwr.error) kwNote = `<span class="semstate err">Full-text search failed (${esc(kwr.error)}).</span>`;
     else if (mode !== "semantic") for (const [i, sc] of kwr.scores) { const d = S.docs[i]; if (d && (src === "all" || d.source === src)) kw.set(d.id, sc); }
+    // "Exact words" never dead-ends: when few documents contain every word, documents with most of the words follow them
+    if (mode === "keyword" && kwr.partial?.size) {
+      const strict = [...kw.keys()].filter(id => passesAll(S.byId.get(id))).length;
+      if (strict < 10) {
+        const extra = [...kwr.partial].map(([i, p]) => [S.docs[i], p]).filter(([d]) => d && (src === "all" || d.source === src) && passesAll(d))
+          .sort((a, b) => b[1].matched - a[1].matched || b[1].weight - a[1].weight || b[1].score - a[1].score);
+        if (extra.length) {
+          for (const [d, p] of extra) kwPartial.set(d.id, p);
+          const nowhere = kwr.absent?.length ? ` ${kwr.absent.map(w => `“${esc(w)}”`).join(", ")} ${kwr.absent.length === 1 ? "does" : "do"} not appear anywhere in the library.` : "";
+          kwNote = `<span class="semstate" id="partialnote">${strict ? `Only ${strict} document${strict === 1 ? " contains" : "s contain"} all of your words; the rest contain most of them.` : "No document contains all of your words; showing documents that contain most of them."}${nowhere}</span>`;
+        }
+      }
+    }
   }
 
   // ---- combine
@@ -1105,18 +1521,21 @@ function renderSearch(params) {
       const inPool = sem.hits.filter(h => { const d = S.byId.get(h.id); return d && (src === "all" || d.source === src) && !negated(d) && passes(d); });
       const top = inPool.length ? inPool[0].score : 0;
       // scores fall off quickly after a few very close matches, so the cut-off is generous and the list is capped
-      const [cut, floor, cap] = mode === "semantic" ? [0.35, 0.12, 150] : [0.45, 0.15, 80];
-      inPool.filter(h => h.score >= Math.max(floor, top * cut)).slice(0, cap).forEach((h, i) => semRank.set(h.id, [i, h]));
+      // AI-model similarities sit in a narrow band (unrelated text still scores ~0.3-0.4), so its cut-off is a distance from the best
+      const keep = sem.engine === "ai"
+        ? (mode === "semantic" ? [h => h.score >= Math.max(0.5, top - 0.17), 150] : [h => h.score >= Math.max(0.55, top - 0.12), 80])
+        : (mode === "semantic" ? [h => h.score >= Math.max(0.12, top * 0.35), 150] : [h => h.score >= Math.max(0.15, top * 0.45), 80]);
+      inPool.filter(keep[0]).slice(0, keep[1]).forEach((h, i) => semRank.set(h.id, [i, h]));
     }
-    const kwRank = new Map([...kw].sort((a, b) => b[1] - a[1]).map(([id], i) => [id, i]));
-    const ids = new Set([...kw.keys(), ...semRank.keys()]);
+    const kwRank = new Map([...[...kw].sort((a, b) => b[1] - a[1]).map(([id]) => id), ...kwPartial.keys()].map((id, i) => [id, i]));
+    const ids = new Set([...kw.keys(), ...kwPartial.keys(), ...semRank.keys()]);
     for (const id of ids) {
       const d = S.byId.get(id);
       const k = kwRank.get(id), s = semRank.get(id);
       // reciprocal-rank fusion of the exact-word and meaning rankings
       const score = 1000 * ((k !== undefined ? 1 / (60 + k) : 0) + (s ? 1 / (60 + s[0]) : 0));
       scored.push([d, score]);
-      hitInfo.set(id, { kw: k !== undefined, sem: s ? s[1] : null });
+      hitInfo.set(id, { kw: k !== undefined, sem: s ? s[1] : null, partial: kwPartial.get(id) || null });
     }
   }
   const results = scored.filter(([d]) => passes(d));
@@ -1190,7 +1609,8 @@ function renderSearch(params) {
       <p style="margin-top:18px">Or start from the research team's ratings:</p>
       <div class="examples">${["Kernels/GPU", "Compilers", "Inference & serving", "Training & distributed", "Hardware/accelerators", "ML research"]
         .map(t => `<a href="${searchHref({ src, fit: "Strong", track: t })}">Strong fit · ${esc(t)}</a>`).join("")}</div>
-      <p style="margin-top:18px">Or <a href="#/browse">browse by university, source and researcher</a>.</p></div>`;
+      <p style="margin-top:18px">Or <a href="#/browse">browse by university, source and researcher</a>.</p>
+      <p style="margin-top:18px;font-size:13px"><a href="#/quality">Search quality and library health report</a></p></div>`;
   } else if ((useSem && sem.pending && mode === "semantic") || (kwr?.pending && mode !== "semantic" && !total)) {
     list = `<div class="empty">Searching ${mode === "semantic" ? "by meaning" : "the full text of the library"}…</div>`;
   } else if (!total) {
@@ -1198,7 +1618,7 @@ function renderSearch(params) {
   } else {
     const cards = view === "people"
       ? peopleList.slice(0, shown).map(p => personCard(p, terms, regs, hlRegs, q, hitInfo, mode)).join("")
-      : results.slice(0, shown).map(([d]) => resultCard(d, hlRegs, q, hitInfo.get(d.id))).join("");
+      : results.slice(0, shown).map(([d]) => resultCard(d, hlRegs, q, hitInfo.get(d.id), mode)).join("");
     list = cards + (total > shown ? `<button class="more" id="more">Show more (${(total - shown).toLocaleString()} remaining)</button>` : "");
   }
 
@@ -1211,7 +1631,7 @@ function renderSearch(params) {
   const modeBtn = m => `<button type="button" data-mode="${m}" class="${mode === m ? "on" : ""}" ${!semEnabled() && m !== "keyword" ? "disabled" : ""}>${MODES[m]}</button>`;
   const hint = {
     hybrid: `Matches exact words <em>and</em> documents with a related meaning. <code>"exact phrase"</code> · <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> still work.`,
-    keyword: `Every word must appear in the document (any order; <code>"quoted words"</code> must all appear). <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> for word starts.`,
+    keyword: `Documents with every word come first (any order; <code>"quoted words"</code> must all appear); if few have them all, documents with most of them follow, labelled with the words they lack. <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> for word starts.`,
     semantic: `Ranks passages by meaning, even when they use different words. <code>-word</code> still excludes.`,
   }[mode];
 
@@ -1278,8 +1698,8 @@ function docHref(d, q, hit) {
 function personCard(p, terms, regs, hlRegs, q, hitInfo, mode) {
   const c = p.c, qs = q ? "?q=" + encodeURIComponent(q) : "", key = STORE.key("c", c.id);
   const evidence = p.docs.slice(0, 3).map(([d]) => { const h = hitInfo.get(d.id); return `<div class="evidence">
-      <a href="${docHref(d, q, h)}">${highlight(d.title, hlRegs)}</a><span class="tag">${esc(d.type)}</span>${isExternal(d) ? availTag(d) : ""}${misTag(d)}${h?.sem && !h.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}
-      ${q ? excerptHtml(d, hlRegs, h, 1) : ""}${readLink(d, docHref(d, q, h))}</div>`; }).join("");
+      <a href="${docHref(d, q, h)}">${highlight(d.title, hlRegs)}</a><span class="tag">${esc(d.type)}</span>${isExternal(d) ? availTag(d) : ""}${misTag(d)}${h?.sem && !h.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}${partialTag(h)}
+      ${q ? passageSlot(d, q, mode, h) : ""}${readLink(d, docHref(d, q, h))}</div>`; }).join("");
   const semOnly = p.docs.every(([d]) => !hitInfo.get(d.id)?.kw);
   return `<article class="result person">
     <div class="person-head">
@@ -1307,14 +1727,18 @@ function metaLine(d, withName = true) {
   </div>`;
 }
 
-function resultCard(d, regs, q, hit) {
+function partialTag(hit) {
+  const p = hit?.partial;
+  return p ? `<span class="tag partial" title="This document does not contain: ${esc(p.missing.join(", "))}">Has ${p.matched} of ${p.of} words · not: ${esc(p.missing.join(", "))}</span>` : "";
+}
+function resultCard(d, regs, q, hit, mode = "hybrid") {
   const key = STORE.key("d", d.id);
   return `<article class="result" data-src="${esc(d.source)}">
-    <div class="person-head"><h3><a href="${docHref(d, q, hit)}">${highlight(d.title, regs)}</a><span class="tag">${esc(d.type)}</span>${availTag(d, docHref(d, q, hit))}${misTag(d)}${hit?.sem && !hit.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}</h3>${actions(key)}</div>
+    <div class="person-head"><h3><a href="${docHref(d, q, hit)}">${highlight(d.title, regs)}</a><span class="tag">${esc(d.type)}</span>${availTag(d, docHref(d, q, hit))}${misTag(d)}${hit?.sem && !hit.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}${partialTag(hit)}</h3>${actions(key)}</div>
     ${metaLine(d)}
     ${d.authors ? `<div class="meta"><span>Authors: ${highlight(d.authors.length > 220 ? d.authors.slice(0, 220) + "…" : d.authors, regs)}</span></div>` : ""}
     ${tagRow(key)}
-    ${excerptHtml(d, regs, hit)}
+    ${q && hit ? passageSlot(d, q, mode, hit) : excerptHtml(d, regs)}
     ${readLink(d, docHref(d, q, hit))}
   </article>`;
 }
@@ -1327,21 +1751,22 @@ function renderBlocks(blocks, regs) {
   let html = "", i = 0;
   while (i < blocks.length) {
     const [kind, text] = blocks[i];
-    if (kind === "h") { html += `<h2>${highlight(text, regs)}</h2>`; i++; continue; }
-    if (kind === "pre") { html += `<pre>${highlight(text, regs)}</pre>`; i++; continue; }
+    const b0 = i;   // data-b: index of the first block shown by this element (used to open a paper at a passage)
+    if (kind === "h") { html += `<h2 data-b="${b0}">${highlight(text, regs)}</h2>`; i++; continue; }
+    if (kind === "pre") { html += `<pre data-b="${b0}">${highlight(text, regs)}</pre>`; i++; continue; }
     if (CODE_RE.test(text)) {
       const lines = [];
       while (i < blocks.length && blocks[i][0] === "p" && (CODE_RE.test(blocks[i][1]) || (lines.length && blocks[i + 1] && CODE_RE.test(blocks[i + 1][1]) && blocks[i][1].length < 80))) lines.push(blocks[i++][1]);
-      if (lines.length >= 2) { html += `<pre>${lines.map(l => highlight(l, regs)).join("\n")}</pre>`; continue; }
-      html += `<p>${highlight(lines[0], regs)}</p>`; continue;
+      if (lines.length >= 2) { html += `<pre data-b="${b0}">${lines.map(l => highlight(l, regs)).join("\n")}</pre>`; continue; }
+      html += `<p data-b="${b0}">${highlight(lines[0], regs)}</p>`; continue;
     }
     if (LIST_RE.test(text)) {
       const items = [];
       while (i < blocks.length && blocks[i][0] === "p" && LIST_RE.test(blocks[i][1])) items.push(blocks[i++][1]);
-      html += `<ul class="asis">${items.map(t => `<li>${highlight(t, regs)}</li>`).join("")}</ul>`;
+      html += `<ul class="asis">${items.map((t, k) => `<li data-b="${b0 + k}">${highlight(t, regs)}</li>`).join("")}</ul>`;
       continue;
     }
-    html += `<p>${highlight(text, regs)}</p>`; i++;
+    html += `<p data-b="${b0}">${highlight(text, regs)}</p>`; i++;
   }
   return html;
 }
@@ -1410,8 +1835,10 @@ function renderDoc(id, params) {
     if (location.hash !== hash) return;
     const box = document.getElementById("doctext");
     if (content.pdf) {
-      box.innerHTML = `<p class="notice">PDF from the archive. ${q ? "Use your browser's find (Ctrl/Cmd+F) inside the PDF to locate search terms." : ""}</p>
-        <object class="pdfview" data="${content.pdf}" type="application/pdf"><p>Your browser cannot show PDFs inline. ${driveLink}</p></object>`;
+      const pg = +params.get("page") || 0;
+      box.innerHTML = `<p class="notice">PDF from the archive.${pg ? ` Opened at <strong>page ${pg}</strong>, where the passage from your search appears.` : ""} ${q ? "Use your browser's find (Ctrl/Cmd+F) inside the PDF to locate search terms." : ""}</p>
+        <object class="pdfview" data="${content.pdf}${pg ? "#page=" + pg : ""}" type="application/pdf"><p>Your browser cannot show PDFs inline. ${driveLink}</p></object>`;
+      if (pg) setTimeout(() => document.getElementById("fulltext")?.scrollIntoView({ block: "start" }), 50);
       return;
     }
     box.innerHTML = `${regs.length ? `<div class="docbar"><span id="mcount"></span><button id="prev">↑ Previous</button><button id="next">↓ Next match</button></div>` : ""}
@@ -1431,13 +1858,121 @@ function renderDoc(id, params) {
       label.textContent = marks.length ? `${marks.length} match${marks.length === 1 ? "" : "es"} in text` : "No exact matches in the text (found by related meaning or in the metadata)";
       document.getElementById("next").onclick = () => step(1);
       document.getElementById("prev").onclick = () => step(-1);
-      if (marks.length) setTimeout(() => step(1), 50);
+      if (marks.length && !params.has("at")) setTimeout(() => step(1), 50);
+    }
+    if (params.has("at")) {
+      // open at the passage chosen in the search results
+      const at = +params.get("at");
+      const el = [...document.querySelectorAll(".doc [data-b]")].filter(x => +x.dataset.b <= at).pop();
+      if (el) {
+        el.classList.add("target");
+        const marks = [...document.querySelectorAll(".doc mark")];
+        const k = marks.findIndex(m => el.contains(m));
+        setTimeout(() => {
+          el.scrollIntoView({ block: "center" });
+          if (k >= 0 && document.getElementById("mcount")) { marks[k].classList.add("current"); document.getElementById("mcount").textContent = `Match ${k + 1} of ${marks.length}`; }
+        }, 50);
+      }
     }
   }).catch(e => {
     if (location.hash !== hash) return;
     document.getElementById("doctext").innerHTML = `<div class="error"><strong>Could not open this document${d.drive ? " from Google Drive" : ""}.</strong><br>${
       e.status === 403 || e.status === 404 || e.message === "no-access" ? "Your Google account does not have access to this file." : esc(e.message)} ${driveLink}</div>`;
   });
+}
+
+// ------------------------------------------------------------------ search quality and library health report
+// Written by tools/search_eval.js at each build (the site's own search, run automatically on the real library).
+function renderQuality() {
+  $app.innerHTML = `<div class="page"><div class="loading" style="padding:30px 0">Loading the report…</div></div>`;
+  const hash = location.hash;
+  secureJSON("quality.enc").then(r => { if (location.hash === hash) $app.innerHTML = qualityHtml(r); })
+    .catch(() => { if (location.hash === hash) $app.innerHTML = `<div class="page"><h1>Search quality</h1><div class="empty">No report yet. It is produced each time the library is built (Actions › Build library).</div></div>`; });
+}
+function qualityHtml(r) {
+  const pc = x => x === null || x === undefined ? "–" : Math.round(x * 100) + "%";
+  const grade = (x, good, ok) => x === null || x === undefined ? "" : x >= good ? "qgood" : x >= ok ? "qmid" : "qbad";
+  const cell = (x, good = 0.8, ok = 0.5) => `<td class="n ${grade(x, good, ok)}">${pc(x)}</td>`;
+  const num = n => (n ?? 0).toLocaleString();
+  const share = (n, of) => of ? `${num(n)} <small style="color:var(--muted)">(${Math.round((n || 0) / of * 100)}%)</small>` : num(n);
+  const ki = r.knownItem || {}, d = ki.describe || {}, ts = r.topicSummary || { p10: {} }, h = r.health || {}, sp = r.speed || {};
+  const docLink = id => { const x = S.byId.get(id); return x ? `<a href="#/doc/${encodeURIComponent(id)}">${esc(x.title)}</a>` : esc(id); };
+  const candLink = c => `<a class="pname" href="#/candidate/${encodeURIComponent(c.id)}">${esc(c.name)}</a>`;
+  const modeName = { hybrid: "Smart", keyword: "Exact words", semantic: "Meaning" };
+  const hist = (r.history || []).slice(-8).reverse();
+  return `<div class="page">
+    <h1>Search quality and library health</h1>
+    <p class="help">Measured automatically when the library was built (${esc((r.library?.built || "").replace("T", " "))}, ${num(r.library?.docs)} documents), by running the site's own search on the real library.
+      ${r.partial ? "<strong>The test reached its time limit; the numbers cover the part that ran.</strong>" : ""}
+      Green is good, amber is worth a look, red needs work.</p>
+
+    <h2 style="font-size:17px">Can people find a paper they know?</h2>
+    <p class="help">${num(ki.exactTitle?.n)} papers were picked from the library and searched for in three ways.</p>
+    <table class="qtable"><tr><th>Test</th><th>Mode</th><th>Found first</th><th>Found in top 10</th></tr>
+      <tr><td>Search by the exact title</td><td>Exact words</td>${cell(ki.exactTitle?.top1, 0.9, 0.7)}${cell(ki.exactTitle?.top10, 0.95, 0.8)}</tr>
+      ${["hybrid", "keyword", "semantic"].map(m => `<tr><td>Describe it: a few distinctive words from its opening text</td><td>${modeName[m]}</td>${cell(d[m]?.top1, 0.5, 0.25)}${cell(d[m]?.top10, 0.8, 0.5)}</tr>`).join("")}
+      <tr><th></th><th></th><th>Researcher first</th><th>Researcher in top 5</th></tr>
+      <tr><td>Search a paper's title in the people view: is its researcher listed?</td><td>Smart</td>${cell(ki.researcher?.top1, 0.8, 0.5)}${cell(ki.researcher?.top5, 0.9, 0.7)}</tr>
+    </table>
+
+    <h2 style="font-size:17px">Do topic searches return relevant work?</h2>
+    <p class="help">Recruiter-style searches from <code>eval/topics.json</code>. A paper counts as relevant when its text contains enough of the topic's evidence words
+      (an automatic judgement, good for spotting problems and comparing modes, not a replacement for reading). The figure is the relevant share of the top 10
+      (or of all relevant papers, when the library has fewer than 10). ${ts.judged} of ${ts.topics} topics have relevant papers in the library.</p>
+    <table class="qtable"><tr><th>Search</th><th>Relevant papers in library</th><th>Smart</th><th>Exact words</th><th>Meaning</th><th>People view</th></tr>
+      <tr><td><strong>Average</strong></td><td></td>${cell(ts.p10.hybrid)}${cell(ts.p10.keyword)}${cell(ts.p10.semantic)}${cell(ts.p10.people)}</tr>
+      ${(r.topics || []).map(t => `<tr><td><a href="#/?q=${encodeURIComponent(t.q)}">${esc(t.q)}</a>${t.paraphrase ? ` <small style="color:var(--muted)">(reworded)</small>` : ""}</td><td class="n">${num(t.relevantDocs)}</td>${t.relevantDocs
+        ? ["hybrid", "keyword", "semantic"].map(m => t.modes[m] && !t.modes[m].returned ? `<td class="n qbad" title="no results">0 results</td>` : cell(t.modes[m]?.p10)).join("") + cell(t.people?.p10)
+        : `<td colspan="4" style="color:var(--muted)">not in the library</td>`}</tr>`).join("")}
+    </table>
+
+    ${r.library?.aiIndex ? `<h2 style="font-size:17px">Meaning search: AI model compared with the old engine</h2>
+    <p class="help">The same tests run with the AI meaning model (bge-small, used by Smart and Meaning searches) and with the older word-association engine.
+      “Reworded” topics are searches phrased without the papers' own vocabulary (${ts.judgedParaphrase || 0} have relevant papers in the library).
+      ${r.meaningModel?.status === "ready" ? "" : `<strong>The AI model did not load during this test (${esc(r.meaningModel?.error || r.meaningModel?.status || "")}); the AI column fell back to the old engine.</strong>`}</p>
+    <table class="qtable"><tr><th>Test</th><th>AI model</th><th>Old engine</th></tr>
+      <tr><td>Describe it, found in top 10 (Meaning)</td>${cell(d.semantic?.top10)}${cell(d.semantic_lsa?.top10)}</tr>
+      <tr><td>Describe it, found in top 10 (Smart)</td>${cell(d.hybrid?.top10)}${cell(d.hybrid_lsa?.top10)}</tr>
+      <tr><td>Topics: relevant share of top 10 (Meaning)</td>${cell(ts.p10.semantic)}${cell(ts.p10.semantic_lsa)}</tr>
+      <tr><td>Topics: relevant share of top 10 (Smart)</td>${cell(ts.p10.hybrid)}${cell(ts.p10.hybrid_lsa)}</tr>
+      <tr><td>Reworded topics (Meaning)</td>${cell(ts.p10Paraphrase?.semantic)}${cell(ts.p10Paraphrase?.semantic_lsa)}</tr>
+      <tr><td>Reworded topics (Smart)</td>${cell(ts.p10Paraphrase?.hybrid)}${cell(ts.p10Paraphrase?.hybrid_lsa)}</tr>
+      <tr><td>Typical Meaning search time</td><td class="n">${sp.semantic?.medianMs ?? "–"} ms</td><td class="n">${sp.semantic_lsa?.medianMs ?? "–"} ms</td></tr>
+    </table>` : ""}
+
+    <h2 style="font-size:17px">Speed</h2>
+    <table class="qtable"><tr><th>Mode</th><th>Typical search</th><th>Slowest 10%</th><th>Searches timed</th></tr>
+      ${["hybrid", "keyword", "semantic"].map(m => `<tr><td>${modeName[m]}</td><td class="n">${sp[m]?.medianMs ?? "–"} ms</td><td class="n">${sp[m]?.p90Ms ?? "–"} ms</td><td class="n">${num(sp[m]?.n)}</td></tr>`).join("")}
+      <tr><td>Opening the library after sign-in</td><td class="n">${r.loadSeconds ?? "–"} s</td><td></td><td></td></tr>
+    </table>
+
+    <h2 style="font-size:17px">Library health</h2>
+    <table class="qtable">
+      <tr><td>Papers</td><td class="n">${num(h.papers)}</td></tr>
+      <tr><td>Full text in the library</td><td class="n">${share(h.fullText, h.papers)}</td></tr>
+      <tr><td>Full text, but no searchable text (e.g. scanned PDFs)</td><td class="n">${share(h.noSearchableText, h.fullText)}</td></tr>
+      <tr><td>PDFs</td><td class="n">${share(h.pdf, h.papers)}</td></tr>
+      <tr><td>Missing publication year</td><td class="n">${share(h.missingYear, h.papers)}</td></tr>
+      <tr><td>Missing authors</td><td class="n">${share(h.missingAuthors, h.papers)}</td></tr>
+      <tr><td>Missing venue / journal</td><td class="n">${share(h.missingVenue, h.papers)}</td></tr>
+      <tr><td>Needs Review (uncertain researcher match)</td><td class="n">${share(h.needsReview, h.papers)}</td></tr>
+      <tr><td>Researchers</td><td class="n">${num(h.researchers)} ${h.researchersNoPapers ? `<small style="color:var(--muted)">(${num(h.researchersNoPapers)} without papers)</small>` : ""}</td></tr>
+      <tr><td>How researchers were identified</td><td>${Object.entries(h.researchersByMatch || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)}: ${num(v)}`).join(" · ")}</td></tr>
+      <tr><td>Same paper twice under one researcher</td><td class="n">${num(h.duplicatePapersSameResearcher)}</td></tr>
+      <tr><td>Possible duplicate researchers (same first and last name)</td><td class="n">${num(h.possibleDuplicateResearchers)}</td></tr>
+      <tr><td>Papers shared by several researchers (co-authors; expected)</td><td class="n">${num(h.papersSharedByResearchers)}</td></tr>
+    </table>
+    ${h.duplicateResearcherExamples?.length ? `<details class="panel"><summary>Possible duplicate researchers (${num(h.possibleDuplicateResearchers)}; first ${h.duplicateResearcherExamples.length} shown)</summary><div><table class="qtable">
+      ${h.duplicateResearcherExamples.map(g => `<tr><td>${g.map(c => `${candLink(c)} <small style="color:var(--muted)">${esc(c.university || "")} · ${esc(c.match)} · ${c.docs} paper${c.docs === 1 ? "" : "s"}</small>`).join("<br>")}</td></tr>`).join("")}</table></div></details>` : ""}
+    ${h.duplicatePaperExamples?.length ? `<details class="panel"><summary>Same paper twice under one researcher (${num(h.duplicatePapersSameResearcher)}; first ${h.duplicatePaperExamples.length} shown)</summary><div><table class="qtable">
+      ${h.duplicatePaperExamples.map(g => `<tr><td>${esc(g[0].name)}</td><td>${g.map(x => `${docLink(x.id)} <small style="color:var(--muted)">${esc((x.fmt || "").toUpperCase())}</small>`).join("<br>")}</td></tr>`).join("")}</table></div></details>` : ""}
+    ${r.misses?.length ? `<details class="panel"><summary>Known-item searches that missed (${r.misses.length}${r.misses.length >= 150 ? "+" : ""})</summary><div>
+      <p class="help">Each row is a search that did not put the paper (or its researcher) where expected. Rank 0 means not found at all.</p><table class="qtable"><tr><th>Test</th><th>Mode</th><th>Search</th><th>Expected</th><th>Rank</th></tr>
+      ${r.misses.map(m => `<tr><td>${esc(m.test)}</td><td>${esc(m.mode)}</td><td><a href="#/?${new URLSearchParams({ q: m.q, ...(m.test === "Find the researcher" ? {} : { view: "docs" }), ...(m.mode === "Exact words" ? { mode: "keyword" } : m.mode === "Meaning" ? { mode: "semantic" } : {}) })}">${esc(m.q.length > 80 ? m.q.slice(0, 80) + "…" : m.q)}</a></td><td>${m.name ? esc(m.name) + " — " : ""}${docLink(m.id)}</td><td class="n">${m.rank || "–"}</td></tr>`).join("")}</table></div></details>` : ""}
+    ${hist.length > 1 ? `<h2 style="font-size:17px">Recent builds</h2><table class="qtable"><tr><th>Built</th><th>Documents</th><th>Exact title first</th><th>Describe it, top 10 (Smart)</th><th>Researcher top 5</th><th>Topics (Smart)</th><th>Missing year</th><th>Typical Smart search</th></tr>
+      ${hist.map(x => `<tr><td>${esc((x.built || x.generated || "").slice(0, 16).replace("T", " "))}</td><td class="n">${num(x.docs)}</td>${cell(x.exactTitleTop1, 0.9, 0.7)}${cell(x.describeTop10?.hybrid)}${cell(x.researcherTop5, 0.9, 0.7)}${cell(x.topicP10?.hybrid)}<td class="n">${num(x.missingYear)}</td><td class="n">${x.medianMs?.hybrid ?? "–"} ms</td></tr>`).join("")}</table>` : ""}
+    ${r.pageErrors?.length ? `<p class="notice">The test saw ${r.pageErrors.length} page error(s): ${esc(r.pageErrors.slice(0, 3).join(" | "))}</p>` : ""}
+  </div>`;
 }
 
 // ------------------------------------------------------------------ candidate page
@@ -1487,7 +2022,7 @@ function renderCandidate(id, params) {
     <ul class="doclist">${docs.map(([d, sc]) => { const dk = STORE.key("d", d.id); return `<li${q && !sc ? ' class="dim"' : ""}><div class="person-head"><div><a href="#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}"><strong>${highlight(d.title, regs)}</strong></a> <span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}</div>${actions(dk)}</div>
       <div class="meta"><span>${esc(d.platform)}</span>${d.date ? `<span>${esc(d.date)}</span>` : ""}${isExternal(d) || !d.len ? "" : `<span>${d.len.toLocaleString()} indexed words</span>`}${d.fmt === "pdf" ? "<span>PDF</span>" : ""}</div>
       ${tagRow(dk)}
-      ${sc && d.snippet ? `<p class="excerpt">${highlight(d.snippet, regs)}</p>` : ""}${readLink(d, `#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}`)}</li>`; }).join("")}</ul>
+      ${sc ? passageSlot(d, q, "keyword", { kw: true }) : ""}${readLink(d, `#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}`)}</li>`; }).join("")}</ul>
   </div>`;
   scrollTo(0, 0);
 }
