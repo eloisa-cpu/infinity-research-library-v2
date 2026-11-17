@@ -122,6 +122,43 @@ def fnv1a(s):
     return h
 
 
+# ---------------------------------------------------------------- researcher folders
+def _slug(s):
+    return re.sub(r"[^\w]+", "-", unicodedata.normalize("NFKC", s).lower()).strip("-")
+
+
+def parse_researcher_folder(folder, univ):
+    """Read a researcher folder name from the archive. Folder styles in use:
+        Name (C40481)                     Top 50 list            Name (A5014441633)        OpenAlex author
+        Name (STA-03544)                  person key             Name (Google Scholar)     matched via Google Scholar
+        Name (name match - review)        uncertain name match   _Unassigned (review)      papers without a researcher
+        Name (ORCID 0000-0002-1825-0097)  ORCID identifier       Name                      folder name only
+    Drive adds " (1)", " (2)" to repeated folder names; those are the same researcher and are merged.
+    Returns {name, key, match, review}; key identifies the researcher across folders (stable between runs).
+    """
+    name = re.sub(r"(?: \(\d{1,3}\))+$", "", folder.strip())
+    if name.lower().startswith("_unassigned"):
+        return {"name": f"Unassigned papers ({univ})", "key": "UNASSIGNED-" + _slug(univ), "match": "Unassigned (review)", "review": True}
+    m = re.match(r"^(?P<name>.+?) \((?P<label>[^()]+)\)$", name)
+    if not m:
+        return {"name": name, "key": "NAME-" + _slug(univ) + "-" + _slug(name), "match": "Folder name", "review": False}
+    nm, label = m.group("name").strip(), m.group("label").strip()
+    if re.fullmatch(r"C\d+", label, re.I):
+        return {"name": nm, "key": label.upper(), "match": "Top 50 list", "review": False}
+    if re.fullmatch(r"A\d+", label, re.I):
+        return {"name": nm, "key": label.upper(), "match": "OpenAlex", "review": False}
+    mo = re.fullmatch(r"ORCID[:\s]*(\d{4}-\d{4}-\d{4}-\d{3}[\dXx])", label, re.I)
+    if mo:
+        return {"name": nm, "key": "ORCID-" + mo.group(1).upper(), "match": "ORCID", "review": False}
+    if re.fullmatch(r"[A-Za-z]{2,4}-\d+", label):
+        return {"name": nm, "key": label.upper(), "match": "Person key", "review": False}
+    if label.lower() == "google scholar":
+        return {"name": nm, "key": "GS-" + _slug(univ) + "-" + _slug(nm), "match": "Google Scholar", "review": False}
+    if "review" in label.lower():
+        return {"name": nm, "key": "NM-" + _slug(univ) + "-" + _slug(nm), "match": "Name match (review)", "review": True}
+    return {"name": nm, "key": "L-" + _slug(univ) + "-" + _slug(nm + " " + label), "match": label, "review": False}
+
+
 # ---------------------------------------------------------------- Markdown archive files
 META_RE = re.compile(r"\*\*(?P<k>[^:*]{1,60}):\*\*\s*(?P<v>[^|\n]*?)\s*(?=\s\|\s|\s{2}\|\s|$)")
 NEEDS_REVIEW_RE = re.compile(r"needs[- ]review|name pending|possible misattribution", re.I)
