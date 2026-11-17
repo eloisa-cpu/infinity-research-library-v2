@@ -25,7 +25,7 @@ Environment:
 import concurrent.futures as cf, gzip, json, os, re, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from libcore import parse_archive_md, meta_get, md_to_blocks, NEEDS_REVIEW_RE  # noqa: E402
+from libcore import parse_archive_md, meta_get, md_to_blocks, parse_researcher_folder, NEEDS_REVIEW_RE  # noqa: E402
 
 ROOT = os.environ.get("DRIVE_ROOT_FOLDER_ID", "1TbckZTHb2sbKMZDyskcgt0uczTfimXnI")
 KEY_NAME = os.environ.get("DRIVE_KEY_FILE_NAME", "Library access key.txt")
@@ -33,9 +33,16 @@ API = os.environ.get("DRIVE_API_BASE", "https://www.googleapis.com").rstrip("/")
 CACHE = os.environ.get("CACHE_DIR", ".cache/drive")
 FOLDER = "application/vnd.google-apps.folder"
 PUB_RE = re.compile(r"^Publication (?P<n>\d+) - (?P<title>.*)\.(?P<ext>md|pdf)$", re.I)
-RESEARCHER_RE = re.compile(r"^(?P<name>.+?) \((?P<id>[A-Za-z]?\d+)\)$")
 SKIP_DIRS = {"_pipeline", "Collection Logs and Records"}
 WORKERS = int(os.environ.get("DRIVE_WORKERS", "8"))
+# Large first syncs may not fit in one GitHub Actions run (6-hour limit). With a budget, downloading stops cleanly
+# when it runs out; progress is kept in the cache and the next run continues. sync_status.json says whether the
+# cache now holds the complete archive (the workflow only publishes a complete index).
+BUDGET_MIN = float(os.environ.get("DRIVE_SYNC_BUDGET_MINUTES", "0") or 0)
+
+
+class OutOfTime(Exception):
+    pass
 
 
 # ---------------------------------------------------------------- HTTP session with auth + retries
@@ -125,9 +132,7 @@ def crawl():
             researchers += [(u["name"], k) for k in kids if k["mimeType"] == FOLDER]
         def walk(item):
             univ, folder = item
-            m = RESEARCHER_RE.match(folder["name"])
-            if not m:
-                return []
+            who = parse_researcher_folder(folder["name"], univ)      # every folder under a university is a researcher
             found, stack = [], [(folder["id"], "")]
             while stack:
                 fid, sub = stack.pop()
@@ -138,8 +143,8 @@ def crawl():
                     pm = PUB_RE.match(c["name"])
                     if not pm:
                         continue
-                    found.append({**c, "univ": univ, "researcher": m.group("name"), "rid": m.group("id").upper(),
-                                  "sub": sub, "n": int(pm.group("n")), "ext": pm.group("ext").lower(), "title": pm.group("title")})
+                    found.append({**c, "univ": univ, "researcher": who["name"], "rid": who["key"], "match": who["match"],
+                                  "folderReview": who["review"], "sub": sub, "n": int(pm.group("n")), "ext": pm.group("ext").lower(), "title": pm.group("title")})
             return found
         for files in ex.map(walk, researchers):
             for f in files:
@@ -156,7 +161,7 @@ def pdf_text(data):
 
 
 def make_record(f, data):
-    rec = {"id": f["id"], "univ": f["univ"], "researcher": f["researcher"], "rid": f["rid"], "sub": f["sub"],
+    rec = {"id": f["id"], "univ": f["univ"], "researcher": f["researcher"], "rid": f["rid"], "match": f.get("match", ""), "sub": f["sub"],
            "n": f["n"], "ext": f["ext"], "fileTitle": f["title"], "size": int(f.get("size") or len(data)), "modified": f.get("modifiedTime", "")}
     if f["ext"] == "md":
         text = data.decode("utf-8", "replace")
@@ -189,7 +194,8 @@ def make_record(f, data):
                     "archiveStatus": "full text (PDF)", "attribution": "", "notes": "", "available": bool(plain.strip()),
                     "text": plain, "fullTextSource": "", "conversion": "PDF text layer (pdftotext)"})
         review_hay = f["sub"]
-    rec["needsReview"] = bool(NEEDS_REVIEW_RE.search(review_hay)) or rec.get("paperKey", "").upper().startswith("UNK-")
+    rec["contentReview"] = bool(NEEDS_REVIEW_RE.search(review_hay)) or rec.get("paperKey", "").upper().startswith("UNK-")
+    rec["needsReview"] = rec["contentReview"] or bool(f.get("folderReview"))
     return rec
 
 
@@ -199,7 +205,7 @@ def main():
     state = json.load(open(state_path)) if os.path.exists(state_path) else {}
     t0 = time.time()
     papers, keyfile, n_researchers, researchers = crawl()
-    json.dump([{"univ": u, "folder": f["name"], "id": f["id"]} for u, f in researchers],
+    json.dump([{"univ": u, "folder": f["name"], "id": f["id"], **parse_researcher_folder(f["name"], u)} for u, f in researchers],
               open(os.path.join(CACHE, "researchers.json"), "w"), ensure_ascii=False)
     print(f"crawl: {len(papers)} paper files in {n_researchers} researcher folders ({time.time() - t0:.0f}s)")
     if not keyfile:
@@ -211,9 +217,29 @@ def main():
             if state.get(fid, {}).get("md5") != f.get("md5Checksum") or state.get(fid, {}).get("modified") != f.get("modifiedTime")
             or not os.path.exists(os.path.join(CACHE, "records", fid + ".json.gz"))]
     print(f"to download: {len(todo)} new/changed, {len(papers) - len(todo)} unchanged")
-    done, failed, lock = 0, [], threading.Lock()
+    # unchanged files whose folder was renamed or moved: update the cached record without downloading again
+    todo_ids, moved = {f["id"] for f in todo}, 0
+    for fid, f in papers.items():
+        st = state.get(fid)
+        if fid in todo_ids or not st:
+            continue
+        if any(st.get(k) != f.get(k) for k in ("univ", "researcher", "rid", "sub", "match")):
+            path = os.path.join(CACHE, "records", fid + ".json.gz")
+            with gzip.open(path, "rt", encoding="utf-8") as fh:
+                rec = json.load(fh)
+            rec.update({k: f.get(k) for k in ("univ", "researcher", "rid", "sub", "match")})
+            rec["needsReview"] = rec.get("contentReview", rec.get("needsReview", False)) or bool(f.get("folderReview")) \
+                or bool(NEEDS_REVIEW_RE.search(f["sub"]))
+            with gzip.open(path, "wt", encoding="utf-8") as fh:
+                json.dump(rec, fh, ensure_ascii=False)
+            st.update({k: f.get(k) for k in ("univ", "researcher", "rid", "sub", "match")}); moved += 1
+    if moved:
+        print(f"updated folder details for {moved} unchanged papers")
+    done, failed, lock, skipped_time = 0, [], threading.Lock(), 0
 
     def work(f):
+        if BUDGET_MIN and time.time() - t0 > BUDGET_MIN * 60:
+            raise OutOfTime()
         data = get(f"{API}/drive/v3/files/{f['id']}", {"alt": "media", "supportsAllDrives": "true"}).content
         rec = make_record(f, data)
         with gzip.open(os.path.join(CACHE, "records", f["id"] + ".json.gz"), "wt", encoding="utf-8") as fh:
@@ -228,11 +254,13 @@ def main():
                 fu.result()
                 with lock:
                     state[f["id"]] = {"name": f["name"], "md5": f.get("md5Checksum"), "modified": f.get("modifiedTime"),
-                                      "univ": f["univ"], "researcher": f["researcher"], "rid": f["rid"], "sub": f["sub"]}
+                                      "univ": f["univ"], "researcher": f["researcher"], "rid": f["rid"], "sub": f["sub"], "match": f.get("match")}
                     done += 1
                     if done % 500 == 0:
                         print(f"  {done}/{len(todo)} downloaded ({time.time() - t0:.0f}s)")
                         json.dump(state, open(state_path, "w"))
+            except OutOfTime:
+                skipped_time += 1
             except Exception as e:
                 failed.append((f["id"], f["name"], str(e)[:200]))
     # forget files that are no longer on Drive
@@ -243,7 +271,18 @@ def main():
             if os.path.exists(p):
                 os.remove(p)
     json.dump(state, open(state_path, "w"))
-    print(f"sync done: {done} downloaded, {len(failed)} failed, {len(state)} papers cached ({time.time() - t0:.0f}s)")
+    # a few unreadable files (retried next run) must not block publishing; a time-budget stop does
+    complete = skipped_time == 0 and len(failed) <= max(20, len(papers) // 200)
+    json.dump({"complete": complete, "papers": len(papers), "cached": len(state), "remaining": len(papers) - len(state),
+               "failed": len(failed), "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+              open(os.path.join(CACHE, "sync_status.json"), "w"))
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+            fh.write(f"complete={'true' if complete else 'false'}\n")
+    print(f"sync done: {done} downloaded, {len(failed)} failed, {len(state)} of {len(papers)} papers cached ({time.time() - t0:.0f}s)")
+    if skipped_time:
+        print(f"time budget reached: {skipped_time} papers left for the next run (progress is saved); "
+              "the website keeps its current index until the archive is complete")
     for x in failed[:20]:
         print("  FAILED", *x)
     if failed and len(failed) > max(20, len(todo) // 20):
