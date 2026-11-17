@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["index.html", "config.json", "tools/**", "data/blogs.enc", ".github/workflows/build-library.yml"]
+    paths: ["index.html", "config.json", "tools/**", "vendor/**", "eval/**", "data/blogs.enc", ".github/workflows/build-library.yml"]
 
 permissions:
   contents: read
@@ -51,7 +51,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
-          pip install -q requests google-auth numpy scipy scikit-learn cryptography
+          pip install -q requests google-auth numpy scipy scikit-learn cryptography onnxruntime tokenizers
       - name: Restore the Drive text cache
         uses: actions/cache/restore@v4
         with:
@@ -71,10 +71,57 @@ jobs:
         if: steps.sync.outputs.complete != 'true'
         run: |
           echo "::notice::The Drive archive is still being downloaded (progress saved). The website keeps its current index; the next run continues. $(cat .cache/drive/sync_status.json)"
+      # the meaning model (downloaded once from Hugging Face, fingerprint-checked; see tools/models.py) and the document
+      # vectors are kept between runs, so only new or changed papers are processed by the model
+      - name: Restore the meaning model and document vectors
+        if: steps.sync.outputs.complete == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache/models
+            .cache/embeddings
+          key: meaning-${{ github.run_id }}
+          restore-keys: meaning-
       - name: Build the encrypted index
         if: steps.sync.outputs.complete == 'true'
-        timeout-minutes: 90
+        timeout-minutes: 150
         run: python3 tools/build_index.py --out site
+      - name: Save the meaning model and document vectors
+        if: always() && steps.sync.outputs.complete == 'true' && hashFiles('.cache/embeddings/keys.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/models
+            .cache/embeddings
+          key: meaning-${{ github.run_id }}
+      # search quality and library health: runs the site's own search on the real library and adds an encrypted report
+      # ("Search quality" page). Only headline numbers go to the run summary. A failure here never stops publishing.
+      - name: Restore search-quality history
+        if: steps.sync.outputs.complete == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/eval-history.json
+          key: eval-history-${{ github.run_id }}
+          restore-keys: eval-history-
+      - name: Measure search quality and library health
+        id: evalq
+        if: steps.sync.outputs.complete == 'true'
+        continue-on-error: true
+        timeout-minutes: 45
+        run: |
+          mkdir -p "$RUNNER_TEMP/evaltools" && cd "$RUNNER_TEMP/evaltools"
+          npm init -y >/dev/null && npm install --no-audit --no-fund --silent playwright@1.49.1
+          npx playwright install --with-deps chromium
+          cd "$GITHUB_WORKSPACE"
+          NODE_PATH="$RUNNER_TEMP/evaltools/node_modules" node tools/search_eval.js --site site --keyfile "$CACHE_DIR/keyfile.bin" \
+            --topics eval/topics.json --out "$RUNNER_TEMP/eval-report.json" --minutes 35
+          python3 tools/publish_eval.py --report "$RUNNER_TEMP/eval-report.json" --site site --cache "$CACHE_DIR" --history .cache/eval-history.json
+      - name: Save search-quality history
+        if: steps.evalq.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/eval-history.json
+          key: eval-history-${{ github.run_id }}
       - uses: actions/configure-pages@v5
         if: steps.sync.outputs.complete == 'true'
       - uses: actions/upload-pages-artifact@v3
