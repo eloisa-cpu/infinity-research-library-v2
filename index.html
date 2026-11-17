@@ -1160,7 +1160,11 @@ function renderSearch(params) {
     if (filters[f.key] && !counts.has(filters[f.key])) counts.set(filters[f.key], new Set());
     const show = f.show || (v => v);
     const last = v => /^(Not listed|No date|Not rated|Not recorded|Not a research paper)/.test(v);
-    const opts = [...counts].map(([v, s]) => [v, s.size]).sort((a, b) =>
+    let opts = [...counts].map(([v, s]) => [v, s.size]);
+    // very long lists (thousands of researchers or venues): keep the most common, plus the current choice
+    const CAP = 300, capped = opts.length > CAP;
+    if (capped) opts = opts.sort((a, b) => b[1] - a[1]).filter((o, i) => i < CAP || o[0] === filters[f.key]);
+    opts.sort((a, b) =>
       f.key === "year" ? String(b[0]).localeCompare(String(a[0])) :
       f.key === "cand" ? show(a[0]).localeCompare(show(b[0])) :
       f.key === "fit" ? FIT_ORDER[a[0]] - FIT_ORDER[b[0]] :
@@ -1169,6 +1173,7 @@ function renderSearch(params) {
       <select id="f-${f.key}" data-facet="${f.key}">
         <option value="">All (${all.size})</option>
         ${opts.map(([v, n]) => `<option value="${esc(v)}" ${v === filters[f.key] ? "selected" : ""}>${esc(show(v))} (${n})</option>`).join("")}
+        ${capped ? `<option disabled>— ${(counts.size - CAP).toLocaleString()} more; search by name to narrow —</option>` : ""}
       </select>`;
   }).join("");
 
@@ -1460,7 +1465,9 @@ function renderCandidate(id, params) {
     ["Company / organisation", esc(c.company)],
     ["Role / institution", c.institution && c.institution !== c.university && c.institution !== c.company ? esc(c.institution) : ""],
     ["Source", esc(srcLabel(c.source)) + ` <small style="color:var(--muted)">(${esc(c.group)})</small>`],
+    ["Researcher match", c.match ? esc(c.match) + (/review/i.test(c.match) ? " ⚠" : "") : ""],
     ["OpenAlex", c.openalex ? extLink(c.openalex) : ""],
+    ["ORCID", c.orcid ? extLink(c.orcid) : ""],
     ["Archive folder", c.driveFolder ? `<a href="https://drive.google.com/drive/folders/${encodeURIComponent(c.driveFolder)}" target="_blank" rel="noopener noreferrer">Open in Google Drive ↗</a>` : ""],
     ["Blog / site", extLink(c.site)],
     ["GitHub", c.github ? extLink("https://github.com/" + c.github.replace(/^@/, "")) : ""],
