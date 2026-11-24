@@ -261,3 +261,92 @@ def meta_get(meta, *keys):
         if v and v not in ("-", "—", "None"):
             return v
     return ""
+
+
+# ---------------------------------------------------------------- contactability (can the hiring team actually reach this person?)
+# Every candidate gets a tier, shown in search results and used to rank: "ready" first, then "limited", then
+# "unavailable" (kept in the library, hidden at the end of results). Reasons are shown on the candidate's page.
+_HAN = re.compile(r"[㐀-鿿]")
+_KANA_HANGUL = re.compile(r"[぀-ヿ가-힯]")
+_FANCY = re.compile(r"[\U0001D400-\U0001D7FF]")          # mathematical "fancy" letters used in nicknames
+_BOT = re.compile(r"(^|[-_ ])bot($|[-_ ])|github-bot|\bteam$|-team\b|\bofficial$", re.I)
+_PSEUDO_NOTE = re.compile(r"pseudonym|real name not|full name not|name not (stated|given|shown|found)|only a (handle|username)", re.I)
+_ORG_NOTE = re.compile(r"(organi[sz]ation|company|team|project|group|bot) account|not an individual|not a (real )?person\b(?!al)", re.I)
+_DEAD_NOTE = re.compile(r"\b404\b|site not found|not found|no longer exists|rendered empty|no content|access ?denied|unreachable|parked|domain for sale", re.I)
+_INACTIVE_NOTE = re.compile(r"inactive|dormant|outdated \(last update|last update (19|20[01]\d|202[01])|since (19|20[01]\d|202[01])\b|latest visible post (19|20[01]\d|202[01])", re.I)
+_OPEN_NOTE = re.compile(r"\b(open to|seeking|looking for)\b[^.;]{0,60}\b(roles?|opportunit\w*|positions?|jobs?|work)", re.I)
+_NOT_OPEN_NOTE = re.compile(r"not open to|not looking", re.I)
+
+
+def looks_like_real_name(name):
+    """True for full personal names ("Ada Kernelton", "Meng, Hengyu", "赵晨阳"); False for handles and nicknames."""
+    n = (name or "").strip()
+    if not n or _FANCY.search(n) or _BOT.search(n):
+        return False
+    if _HAN.search(n):
+        han = "".join(_HAN.findall(n))
+        return 2 <= len(han) <= 4                       # Chinese names are 2-4 characters; longer runs are nicknames
+    if _KANA_HANGUL.search(n) and not re.search(r"[A-Za-z]", n):
+        return bool(re.search(r"[가-힯]{2,4}", n))  # Korean names; kana-only strings are usually nicknames
+    if re.search(r"\d|_|@", n):
+        return False
+    words = [w for w in re.split(r"[\s,]+", n.replace("(", " ").replace(")", " ")) if w]
+    alpha = [w for w in words if re.match(r"[^\W\d_]", w)]
+    if len(alpha) < 2:
+        return False                                    # one word: a handle or a first name only
+    return True
+
+
+def contactability(c, github_status=None):
+    """c: candidate dict (name, status, note, github, group...). github_status: "ok" / "missing" / None (not checked).
+    Returns {"tier": "ready" | "limited" | "unavailable", "reasons": [...], "open": True/False/None}."""
+    note, status = c.get("note") or "", c.get("status") or ""
+    reasons, tier = [], "ready"
+
+    def worse(t, why):
+        nonlocal tier
+        order = {"ready": 0, "limited": 1, "unavailable": 2}
+        if order[t] > order[tier]:
+            tier = t
+        reasons.append(why)
+
+    if (c.get("key") or c.get("researcherKey") or "").startswith("UNASSIGNED") or (c.get("match") or "").startswith("Unassigned"):
+        worse("unavailable", "Not a person: papers without an identified researcher")
+    if _BOT.search(c.get("name") or "") or _BOT.search(c.get("github") or "") or _ORG_NOTE.search(note):
+        worse("unavailable", "Organization, team or bot account, not an individual")
+    if github_status == "missing":
+        worse("unavailable", "GitHub account unavailable (suspended, deleted or hidden)")
+    named_on_github = "name" in (c.get("filled") or {}).get("fields", [])
+    if not looks_like_real_name(c.get("name")) or (_PSEUDO_NOTE.search(note) and not named_on_github):
+        worse("limited", "No full real name (handle or nickname only)")
+    if status.startswith("No data") or _DEAD_NOTE.search(note):
+        worse("limited", "Website unreachable, empty or gone")
+    elif status.startswith("Skipped"):
+        worse("limited", "Listed link is not their own site")
+    if _INACTIVE_NOTE.search(note):
+        worse("limited", "No recent public activity")
+    is_open = False if _NOT_OPEN_NOTE.search(note) else (True if _OPEN_NOTE.search(note) or c.get("hireable") else None)
+    return {"tier": tier, "reasons": reasons, "open": is_open}
+
+
+# ---------------------------------------------------------------- LinkedIn profile links (only ones the person published)
+LINKEDIN_RE = re.compile(r"(?:https?://)?(?:[a-z]{2,3}\.)?linkedin\.com/(?:in|pub)/([A-Za-z0-9\-_%.]{3,100})", re.I)
+
+
+def linkedin_urls(text):
+    """All LinkedIn personal-profile links in a text or HTML page, normalized to https://www.linkedin.com/in/<id>/."""
+    out = []
+    for m in LINKEDIN_RE.finditer(text or ""):
+        u = "https://www.linkedin.com/in/" + m.group(1).strip("/.").split("?")[0] + "/"
+        if u.lower() not in [x.lower() for x in out]:
+            out.append(u)
+    return out
+
+
+def pick_linkedin(urls, name=""):
+    """One profile link, or None when a page links several different people and none matches the name."""
+    if len(urls) == 1:
+        return urls[0]
+    parts = [p for p in re.split(r"[^a-z]+", (name or "").lower()) if len(p) > 2]
+    hits = [u for u in urls if any(p in u.lower() for p in parts)]
+    return hits[0] if len(hits) == 1 else None
