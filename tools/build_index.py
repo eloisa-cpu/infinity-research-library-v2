@@ -189,44 +189,80 @@ def github_accounts(handles, cache_path):
     return out
 
 
-def site_linkedin(cands, cache_path):
-    """Read each candidate's own homepage once a week and take the LinkedIn link they put there.
-    Returns {candidate id: url}. Set LIBRARY_FETCH_SITES=0 to skip (offline builds)."""
+def page_links(html, base):
+    """Links on a web page: [[visible text, absolute URL], ...] in page order, plus mailto addresses."""
+    from html.parser import HTMLParser
+    from urllib.parse import urljoin
+
+    class P(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True); self.out, self.cur, self.skip = [], None, 0
+        def handle_starttag(self, tag, attrs):
+            if tag in ("script", "style"): self.skip += 1
+            if tag == "a":
+                href = dict(attrs).get("href") or ""
+                self.cur = [href, []]
+        def handle_endtag(self, tag):
+            if tag in ("script", "style") and self.skip: self.skip -= 1
+            if tag == "a" and self.cur:
+                href, parts = self.cur; self.cur = None
+                text = re.sub(r"\s+", " ", "".join(parts)).strip()
+                if href and text and not href.startswith(("javascript:", "#")) and len(text) <= 200:
+                    self.out.append([text, href if href.startswith("mailto:") else urljoin(base, href)])
+        def handle_data(self, data):
+            if self.cur and not self.skip: self.cur[1].append(data)
+    p = P()
+    try:
+        p.feed(html)
+    except Exception:
+        pass
+    return p.out[:600]
+
+
+def fetch_pages(urls, cache_path):
+    """Read each web page once a week (cached): its links, LinkedIn links and email addresses.
+    Returns {url: {"links": [[text, href]...], "linkedin": [...], "mailto": [...]}}. LIBRARY_FETCH_SITES=0 skips reading."""
     import urllib.request, concurrent.futures as cf
     cache = json.load(open(cache_path)) if os.path.exists(cache_path) else {}
     now, todo, out = time.time(), [], {}
-    for c in cands:
-        site = (c.get("site") or "").strip()
-        if not site.startswith("http") or (c.get("status") or "").startswith("Skipped"):
-            continue
-        hit = cache.get(site)
-        if hit and now - hit[1] < 7 * 86400:
-            if hit[0]: out[c["id"]] = hit[0]
+    for u in sorted({u for u in urls if u and u.startswith("http")}):
+        hit = cache.get(u)
+        if hit and isinstance(hit[0], dict) and now - hit[1] < 7 * 86400:
+            out[u] = hit[0]
         elif os.environ.get("LIBRARY_FETCH_SITES", "1") != "0":
-            todo.append((c, site))
-        elif hit and hit[0]:
-            out[c["id"]] = hit[0]
+            todo.append(u)
+        elif hit and isinstance(hit[0], dict):
+            out[u] = hit[0]
 
-    def fetch(item):
-        c, site = item
+    def fetch(u):
         try:
-            req = urllib.request.Request(site, headers={"User-Agent": "Mozilla/5.0 (research-library link check)", "Accept": "text/html"})
+            req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (research-library link check)", "Accept": "text/html"})
             with urllib.request.urlopen(req, timeout=15) as r:
-                html = r.read(2_000_000).decode("utf-8", "replace")
-            return c, site, pick_linkedin(linkedin_urls(html), c.get("name")) or ""
+                if "html" not in (r.headers.get("Content-Type") or "html"):
+                    return u, {"links": [], "linkedin": [], "mailto": []}
+                html = r.read(3_000_000).decode("utf-8", "replace")
+            links = page_links(html, r.geturl() if hasattr(r, "geturl") else u)
+            mail = list(dict.fromkeys(h[7:].split("?")[0].strip() for _, h in links if h.startswith("mailto:") and "@" in h))
+            return u, {"links": links, "linkedin": linkedin_urls(html), "mailto": mail[:5]}
         except Exception:
-            return c, site, None                   # unreachable now: try again next week
+            return u, None                        # unreachable now: try again next build
 
     with cf.ThreadPoolExecutor(8) as ex:
-        for c, site, url in ex.map(fetch, todo):
-            if url is not None:
-                cache[site] = [url, now]
-            if url:
-                out[c["id"]] = url
+        for u, res in ex.map(fetch, todo):
+            if res is not None:
+                cache[u] = [res, now]; out[u] = res
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     json.dump(cache, open(cache_path, "w"))
-    log(f"own websites: {len(todo)} read now, {len(out)} with a LinkedIn link")
+    log(f"web pages: {len(todo)} read now, {len(out)} known, {sum(len(v['links']) for v in out.values()):,} links")
     return out
+
+
+def doc_links(page, blocks):
+    """Links from the live page whose text appears in the saved text, in page order (to restore them when displayed)."""
+    if not page:
+        return []
+    text = " ".join(b[1] for b in blocks)
+    return [[t, h] for t, h in page["links"] if len(t) >= 2 and t in text][:400]
 
 
 def enrich_from_github(c, prof):
@@ -346,7 +382,18 @@ def main():
         in_records[c["id"]] += linkedin_urls(" ".join(str(v) for v in c.values() if isinstance(v, str)))
     for d in blogs["docs"]:
         in_records[d.get("candidate")] += linkedin_urls(json.dumps(d.get("blocks", []), ensure_ascii=False) + " " + (d.get("url") or ""))
-    from_sites = site_linkedin(list(candidates.values()), os.path.join(args.emb_cache, "site_links.json"))
+    pages = fetch_pages([c.get("site", "") for c in candidates.values() if not (c.get("status") or "").startswith("Skipped")]
+                        + [d.get("url", "") for d in blogs["docs"] if d.get("blocks")], os.path.join(args.emb_cache, "web_pages.json"))
+    from_sites = {}
+    for c in candidates.values():
+        home = pages.get((c.get("site") or "").strip()) if not (c.get("status") or "").startswith("Skipped") else None
+        if not home:
+            continue
+        li = pick_linkedin(home["linkedin"], c.get("name"))
+        if li:
+            from_sites[c["id"]] = li
+        if not (c.get("email") or "").strip() and len(home["mailto"]) == 1:     # one address on their own homepage
+            c["email"], c["emailFrom"] = home["mailto"][0], "their website"
     nli = collections.Counter()
     for c in candidates.values():
         rec = pick_linkedin(list(dict.fromkeys(in_records.get(c["id"], []))), c.get("name"))
@@ -367,7 +414,8 @@ def main():
         m["source"] = group_src.get(d["group"], "companies")
         m["availability"] = "Locally Archived" if body.strip() else "External Link Only"
         m["snippet"] = snippet_of(body) if body.strip() else ""
-        blog_docs.append(m); blog_blocks[d["id"]] = d["blocks"]
+        lk = doc_links(pages.get(d.get("url", "")), d["blocks"])
+        blog_docs.append(m); blog_blocks[d["id"]] = {"blocks": d["blocks"], "links": lk} if lk else d["blocks"]
         jobs.append(("blog", (m.get("title", ""), m.get("authors", ""), m.get("name", "") + (" " + bc["handle"] if bc and bc.get("handle") else ""), body)))
     rdir = os.path.join(args.cache, "records")
     paths = [os.path.join(rdir, f) for f in sorted(os.listdir(rdir))]
