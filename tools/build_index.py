@@ -19,14 +19,14 @@ Every data file is gzip + AES-256-GCM encrypted with the key in the Drive access
 
 Usage: python3 tools/build_index.py [--cache .cache/drive] [--out site]
 """
-import argparse, collections, datetime, gzip, json, math, multiprocessing as mp, os, re, shutil, struct, sys, time
+import argparse, collections, datetime, gzip, json, math, multiprocessing as mp, os, re, shutil, struct, sys, time, urllib.parse
 
 import numpy as np
 import scipy.sparse as sp
 from sklearn.utils.extmath import randomized_svd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from libcore import (encrypt, decrypt, key_from_keyfile, index_counts, semantic_counts, fnv1a, STOPWORDS)  # noqa: E402
+from libcore import (encrypt, decrypt, key_from_keyfile, index_counts, semantic_counts, fnv1a, STOPWORDS, contactability, linkedin_urls, pick_linkedin)  # noqa: E402
 import models  # noqa: E402
 from models import doc_text  # noqa: E402
 
@@ -134,6 +134,126 @@ def varint_np(vals):
     return out
 
 
+GH_FIELDS = ("name", "company", "location", "bio", "email", "twitter_username", "hireable", "blog", "updated_at")
+
+
+def github_accounts(handles, cache_path):
+    """Look up each candidate's GitHub profile. Suspended, deleted and hidden accounts answer 404 ("missing"); existing
+    ones return what the person lists publicly (name, company, location, bio, public email, X handle, "available for
+    hire"). Needs GITHUB_TOKEN (set automatically in GitHub Actions); results are cached for 7 days.
+    Returns {handle (lower case): {"state": "ok"|"missing", "profile": {...}}}."""
+    import urllib.request, urllib.error
+    token, api = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_API_BASE", "https://api.github.com").rstrip("/")
+    cache = json.load(open(cache_path)) if os.path.exists(cache_path) else {}
+    now, out, asked, limited = time.time(), {}, 0, False
+    for h in sorted({x.strip() for x in handles if x and x.strip()}):
+        k = h.lower()
+        hit = cache.get(k)
+        fresh = hit and len(hit) >= 3 and now - hit[1] < 7 * 86400       # older entries had no profile: refresh them
+        if fresh or not token or limited:
+            if hit: out[k] = {"state": hit[0], "profile": hit[2] if len(hit) >= 3 else {}}
+            continue
+        req = urllib.request.Request(f"{api}/users/{urllib.parse.quote(h)}", headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "User-Agent": "library-build"})
+        state, prof = None, {}
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                j = json.loads(r.read().decode("utf-8") or "{}")
+            state = "ok"
+            prof = {f: j.get(f) for f in GH_FIELDS if j.get(f) not in (None, "")}
+            try:                                  # "Social accounts" the person added to their profile (LinkedIn etc.)
+                sreq = urllib.request.Request(f"{api}/users/{urllib.parse.quote(h)}/social_accounts", headers=req.headers)
+                with urllib.request.urlopen(sreq, timeout=20) as r:
+                    socials = json.loads(r.read().decode("utf-8") or "[]")
+                li = [x.get("url", "") for x in socials if x.get("provider") == "linkedin" or "linkedin.com" in x.get("url", "")]
+                li += linkedin_urls(j.get("blog") or "")
+                if li:
+                    prof["linkedin"] = li[0]
+            except Exception:
+                pass
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                state = "missing"
+            else:                                # rate limit or GitHub trouble: keep what we knew, try next build
+                limited = e.code in (403, 429)
+        except Exception:
+            pass
+        asked += 1
+        if state:
+            cache[k] = [state, now, prof]; out[k] = {"state": state, "profile": prof}
+        elif hit:
+            out[k] = {"state": hit[0], "profile": hit[2] if len(hit) >= 3 else {}}
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    json.dump(cache, open(cache_path, "w"))
+    log(f"GitHub accounts: {len(out)} known, {asked} checked now, {sum(v['state'] == 'missing' for v in out.values())} unavailable, "
+        f"{sum(bool(v['profile']) for v in out.values())} with public profile details" + ("" if token else " (no GITHUB_TOKEN: not checked this time)"))
+    return out
+
+
+def site_linkedin(cands, cache_path):
+    """Read each candidate's own homepage once a week and take the LinkedIn link they put there.
+    Returns {candidate id: url}. Set LIBRARY_FETCH_SITES=0 to skip (offline builds)."""
+    import urllib.request, concurrent.futures as cf
+    cache = json.load(open(cache_path)) if os.path.exists(cache_path) else {}
+    now, todo, out = time.time(), [], {}
+    for c in cands:
+        site = (c.get("site") or "").strip()
+        if not site.startswith("http") or (c.get("status") or "").startswith("Skipped"):
+            continue
+        hit = cache.get(site)
+        if hit and now - hit[1] < 7 * 86400:
+            if hit[0]: out[c["id"]] = hit[0]
+        elif os.environ.get("LIBRARY_FETCH_SITES", "1") != "0":
+            todo.append((c, site))
+        elif hit and hit[0]:
+            out[c["id"]] = hit[0]
+
+    def fetch(item):
+        c, site = item
+        try:
+            req = urllib.request.Request(site, headers={"User-Agent": "Mozilla/5.0 (research-library link check)", "Accept": "text/html"})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                html = r.read(2_000_000).decode("utf-8", "replace")
+            return c, site, pick_linkedin(linkedin_urls(html), c.get("name")) or ""
+        except Exception:
+            return c, site, None                   # unreachable now: try again next week
+
+    with cf.ThreadPoolExecutor(8) as ex:
+        for c, site, url in ex.map(fetch, todo):
+            if url is not None:
+                cache[site] = [url, now]
+            if url:
+                out[c["id"]] = url
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    json.dump(cache, open(cache_path, "w"))
+    log(f"own websites: {len(todo)} read now, {len(out)} with a LinkedIn link")
+    return out
+
+
+def enrich_from_github(c, prof):
+    """Fill gaps in a candidate from their public GitHub profile, without overwriting what the research team recorded.
+    Everything added is listed in c["filled"] so the site can say where it came from."""
+    from libcore import looks_like_real_name
+    filled = []
+    name = (prof.get("name") or "").strip()
+    if name and not looks_like_real_name(c.get("name")) and looks_like_real_name(name):
+        c["handle"] = c.get("name"); c["name"] = name; filled.append("name")
+    comp = re.sub(r"\s+", " ", (prof.get("company") or "").replace("@", " ")).strip(" ,")
+    if comp and not (c.get("company") or "").strip():
+        c["company"] = comp; filled.append("company")
+    for src, dst in (("location", "location"), ("email", "email"), ("bio", "bio")):
+        v = (prof.get(src) or "").strip()
+        if v and not (c.get(dst) or "").strip():
+            c[dst] = v[:240]; filled.append(dst)
+    tw = (prof.get("twitter_username") or "").strip()
+    if tw and not (c.get("x") or "").strip():
+        c["x"] = "https://x.com/" + tw; filled.append("x")
+    if prof.get("hireable") is True:
+        c["hireable"] = True; filled.append("hireable")
+    if filled:
+        c["filled"] = {"from": "GitHub profile", "fields": filled}
+    return c
+
+
 _EMB = None
 
 
@@ -209,15 +329,46 @@ def main():
     for c in blogs["candidates"]:
         c = dict(c); c["source"] = group_src.get(c["group"], "companies"); c["docs"] = []
         candidates[c["id"]] = c
+    # public GitHub profiles: does the account still exist, and what does the person list (real name, employer...)?
+    # done first, so a real name found on GitHub is part of the search index
+    gh = github_accounts([c.get("github", "") for c in candidates.values()], os.path.join(args.emb_cache, "github_accounts.json"))
+    nfilled = collections.Counter()
+    for c in candidates.values():
+        acct = gh.get((c.get("github") or "").strip().lower()) or {}
+        c["_gh_state"] = acct.get("state")
+        if acct.get("state") == "ok" and acct.get("profile"):
+            enrich_from_github(c, acct["profile"])
+            nfilled.update(c.get("filled", {}).get("fields", []))
+    log(f"filled from GitHub profiles: {dict(nfilled)}")
+    # LinkedIn: only links the person published. Our own records first, then their website, then their GitHub profile.
+    in_records = collections.defaultdict(list)
+    for c in candidates.values():
+        in_records[c["id"]] += linkedin_urls(" ".join(str(v) for v in c.values() if isinstance(v, str)))
+    for d in blogs["docs"]:
+        in_records[d.get("candidate")] += linkedin_urls(json.dumps(d.get("blocks", []), ensure_ascii=False) + " " + (d.get("url") or ""))
+    from_sites = site_linkedin(list(candidates.values()), os.path.join(args.emb_cache, "site_links.json"))
+    nli = collections.Counter()
+    for c in candidates.values():
+        rec = pick_linkedin(list(dict.fromkeys(in_records.get(c["id"], []))), c.get("name"))
+        prof_li = (gh.get((c.get("github") or "").strip().lower()) or {}).get("profile", {}).get("linkedin")
+        gh_li = linkedin_urls(prof_li or "")
+        for url, src in ((rec, "our records"), (from_sites.get(c["id"]), "their website"), (gh_li[0] if gh_li else None, "their GitHub profile")):
+            if url:
+                c["linkedin"], c["linkedinFrom"] = url, src; nli[src] += 1
+                break
+    log(f"LinkedIn links: {dict(nli)}")
     blog_docs, blog_blocks, jobs = [], {}, []
     for d in sorted(blogs["docs"], key=lambda d: d["id"]):
         body = "\n\n".join(b[1] for b in d["blocks"])
         m = {k: v for k, v in d.items() if k != "blocks"}
+        bc = candidates.get(d.get("candidate"))
+        if bc and bc.get("handle") and m.get("name") == bc["handle"]:
+            m["name"] = bc["name"]
         m["source"] = group_src.get(d["group"], "companies")
         m["availability"] = "Locally Archived" if body.strip() else "External Link Only"
         m["snippet"] = snippet_of(body) if body.strip() else ""
         blog_docs.append(m); blog_blocks[d["id"]] = d["blocks"]
-        jobs.append(("blog", (m.get("title", ""), m.get("authors", ""), m.get("name", ""), body)))
+        jobs.append(("blog", (m.get("title", ""), m.get("authors", ""), m.get("name", "") + (" " + bc["handle"] if bc and bc.get("handle") else ""), body)))
     rdir = os.path.join(args.cache, "records")
     paths = [os.path.join(rdir, f) for f in sorted(os.listdir(rdir))]
     jobs += [("paper", p) for p in paths]
@@ -290,6 +441,12 @@ def main():
         if d["candidate"] in candidates:
             candidates[d["candidate"]]["docs"].append(d["id"])
     N = len(docs)
+    # can the hiring team actually reach each candidate? (real name, working links, real person; see libcore.contactability)
+    tiers = collections.Counter()
+    for c in candidates.values():
+        c["contact"] = contactability(c, c.pop("_gh_state", None))
+        tiers[c["contact"]["tier"]] += 1
+    log(f"contactability: {dict(tiers)}")
     log(f"{N} documents ({len(paper_docs)} papers, {N - len(paper_docs)} blog documents), {len(candidates)} researchers/candidates")
 
     out = args.out
@@ -450,6 +607,11 @@ def main():
         models.install_into_site(args.models, out)
     if os.path.isdir(os.path.join(ROOT, "vendor")):          # pdf.js: reads PDF text in the browser for search-result passages
         shutil.copytree(os.path.join(ROOT, "vendor"), os.path.join(out, "vendor"), dirs_exist_ok=True)
+    # pdf.js uploaded to the top level (pdfjs/) instead of vendor/pdfjs/: use it from there
+    if not os.path.exists(os.path.join(out, "vendor", "pdfjs", "pdf.min.mjs")) and os.path.exists(os.path.join(ROOT, "pdfjs", "pdf.min.mjs")):
+        shutil.copytree(os.path.join(ROOT, "pdfjs"), os.path.join(out, "vendor", "pdfjs"), dirs_exist_ok=True)
+    if not os.path.exists(os.path.join(out, "vendor", "pdfjs", "pdf.min.mjs")):
+        log("warning: pdf.js not found (vendor/pdfjs/); PDF results will not show their relevant passage")
     open(os.path.join(out, ".nojekyll"), "w").close()
     total = sum(os.path.getsize(os.path.join(out, "data", f)) for f in os.listdir(os.path.join(out, "data")))
     print(f"site written to {out}/: {len(os.listdir(os.path.join(out, 'data')))} data files, {total / 1e6:.1f} MB")
