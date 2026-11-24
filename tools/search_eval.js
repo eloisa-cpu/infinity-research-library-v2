@@ -18,7 +18,10 @@ const { chromium } = require("playwright");
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith("--") ? a.concat([[x.slice(2), all[i + 1]]]) : a), []));
 const SITE = path.resolve(args.site || "site"), KEYFILE = args.keyfile, OUT = args.out || "eval-report.json";
 const SAMPLE = +(args.sample || 150), BUDGET_MS = +(args.minutes || 30) * 60000, T0 = Date.now();
-const topics = JSON.parse(fs.readFileSync(args.topics || path.join(__dirname, "..", "eval", "topics.json"), "utf8")).topics;
+// the topic list: as given, else eval/topics.json, else topics.json at the top of the repository (where it may have been uploaded)
+const topicsFile = [args.topics, path.join(__dirname, "..", "eval", "topics.json"), path.join(__dirname, "..", "topics.json")].find(f => f && fs.existsSync(f));
+if (!topicsFile) { console.error("no topic list found (eval/topics.json)"); process.exit(1); }
+const topics = JSON.parse(fs.readFileSync(topicsFile, "utf8")).topics;
 const log = m => console.log(`[${((Date.now() - T0) / 1000).toFixed(0).padStart(5)}s] ${m}`);
 const outOfTime = () => Date.now() - T0 > BUDGET_MS;
 
