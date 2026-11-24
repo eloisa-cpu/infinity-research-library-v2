@@ -268,6 +268,19 @@
   .helppage h2 { font-size: 18px; margin: 28px 0 8px; scroll-margin-top: 10px; }
   .helppage li { margin: 6px 0; line-height: 1.5; }
   .helptoc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  /* dark mode for the coloured notes and badges (their light colours would leave light text on a light background) */
+  @media (prefers-color-scheme: dark) {
+    .tipbar { background: #2a2208; border-color: #6b5310; color: var(--text); }
+    .tipbar button { background: var(--panel); color: var(--text); border-color: #b7791f; }
+    .tierhead { background: #2a2208; border-color: #6b5310; color: var(--text); }
+    .tierhead.unavailable { background: #2c1313; border-color: #7f1d1d; }
+    .cbadge.lim, .tag.partial { background: #3a2a06; color: #fcd34d; }
+    .cbadge.no { background: #3b1414; color: #fca5a5; }
+    .cbadge.open { background: #0f2e1c; color: #86efac; }
+    .steps .n { color: var(--bg); }
+    .qgood { color: #4ade80; } .qmid { color: #fbbf24; } .qbad { color: #f87171; }
+  }
+  .tipbar, .tierhead { color: var(--text); }
 </style>
 </head>
 <body>
@@ -1168,7 +1181,7 @@ function docContent(d) {
     let p;
     if (d.drive && d.fmt === "pdf") p = pdfBytes(d).then(b => ({ pdf: URL.createObjectURL(new Blob([b], { type: "application/pdf" })) }));
     else if (d.drive) p = driveFile(d.drive, "text").then(t => ({ blocks: mdToBlocks(parseArchiveMd(t)) }));
-    else p = secureJSON((S.index.blogText[d.id] || "") + ".enc").then(j => ({ blocks: j[d.id] || [] }));
+    else p = secureJSON((S.index.blogText[d.id] || "") + ".enc").then(j => { const v = j[d.id]; return Array.isArray(v) ? { blocks: v, links: [] } : { blocks: v?.blocks || [], links: v?.links || [] }; });
     DOCTEXT.set(d.id, p.catch(e => { DOCTEXT.delete(d.id); throw e; }));
   }
   return DOCTEXT.get(d.id);
@@ -1866,26 +1879,81 @@ function resultCard(d, regs, q, hit, mode = "hybrid") {
 const LIST_RE = /^\s*([•●▪◦·\-–]|\d{1,3}[.)])\s+/;
 const CODE_RE = /^(\s{2,}\S|\t|#include\b|#define\b|#!|def |class \w+[:(]|import \w|from \w[\w.]* import |return\b|for \(|while \(|if \(|template\s*<|__global__|\$ |>>> |\/\/ |\/\*|[{}]\s*$|\w[\w.]*\s*\(.*\)\s*;\s*$|(?:let|const|var|int|float|void|auto|fn)\s+\w+.*[;{=]\s*$)/;
 
-function renderBlocks(blocks, regs) {
+// ------------------------------------------------------------------ links inside saved pages
+// When a page was saved only its text was kept. The build re-reads the live page and records its links ([text, url] in
+// page order); here they are put back on the matching text. Repeated labels ("[Code]") take the page's links in order.
+// Short one-word labels are only linked where they look like links (in brackets, before an arrow, or in a short line).
+function makeLinker(links) {
+  if (!links?.length) return null;
+  const queue = new Map();
+  for (const [t, h] of links) { if (!queue.has(t)) queue.set(t, []); queue.get(t).push(h); }
+  const texts = [...queue.keys()].sort((a, b) => b.length - a.length);
+  const word = c => !!c && /[\p{L}\p{N}]/u.test(c);
+  return text => {
+    const out = [];
+    for (const t of texts) {
+      const q = queue.get(t);
+      const short = t.length <= 14 && !/\s/.test(t);
+      let from = 0, at;
+      while (q.length && (at = text.indexOf(t, from)) >= 0) {
+        const e = at + t.length; from = e;
+        if (out.some(([a, b]) => at < b && e > a)) continue;
+        if (word(text[at - 1]) && word(t[0]) || word(text[e]) && word(t[t.length - 1])) continue;     // inside a longer word
+        if (short && !(/[\[(]\s*$/.test(text.slice(Math.max(0, at - 2), at)) || /^\s*(→|›|»)/.test(text.slice(e, e + 3)) || text.length <= 100)) continue;
+        out.push([at, e, q.shift()]);
+      }
+    }
+    return out.sort((a, b) => a[0] - b[0]);
+  };
+}
+const SAFE_URL = /^(https?:\/\/|mailto:)/i;
+const linkHtml = (href, inner) => `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+// text -> HTML: Markdown links, restored page links, plain web and email addresses become links; search words highlighted
+function richText(text, regs, linker) {
+  text = text || "";
+  const segs = [];                                  // [text, href|null]
+  const md = /\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)/g;
+  let pos = 0, m;
+  while ((m = md.exec(text))) { if (m.index > pos) segs.push([text.slice(pos, m.index), null]); segs.push([m[1], m[2]]); pos = m.index + m[0].length; }
+  if (pos < text.length) segs.push([text.slice(pos), null]);
+  const out = [];
+  for (const [t, href] of segs) {
+    if (href) { out.push([t, href]); continue; }
+    const ranges = linker ? linker(t) : [];
+    const auto = /\bhttps?:\/\/[^\s<>"'”’)\]]+[^\s<>"'”’)\].,;:!?]|[\w.+-]+@[\w-]+(\.[\w-]+)*\.[a-z]{2,}/gi;
+    let p2 = 0;
+    const pushPlain = s => {
+      let q2 = 0, a;
+      auto.lastIndex = 0;
+      while ((a = auto.exec(s))) { if (a.index > q2) out.push([s.slice(q2, a.index), null]); out.push([a[0], a[0].includes("@") && !/^https?:/i.test(a[0]) ? "mailto:" + a[0] : a[0]]); q2 = a.index + a[0].length; }
+      if (q2 < s.length) out.push([s.slice(q2), null]);
+    };
+    for (const [a, b, h] of ranges) { if (a > p2) pushPlain(t.slice(p2, a)); out.push([t.slice(a, b), h]); p2 = b; }
+    if (p2 < t.length) pushPlain(t.slice(p2));
+  }
+  return out.map(([t, h]) => h && SAFE_URL.test(h) ? linkHtml(h, highlight(t, regs)) : highlight(t, regs)).join("");
+}
+function renderBlocks(blocks, regs, links) {
+  const L = makeLinker(links), rich = t => richText(t, regs, L);
   let html = "", i = 0;
   while (i < blocks.length) {
     const [kind, text] = blocks[i];
     const b0 = i;   // data-b: index of the first block shown by this element (used to open a paper at a passage)
-    if (kind === "h") { html += `<h2 data-b="${b0}">${highlight(text, regs)}</h2>`; i++; continue; }
-    if (kind === "pre") { html += `<pre data-b="${b0}">${highlight(text, regs)}</pre>`; i++; continue; }
+    if (kind === "h") { html += `<h2 data-b="${b0}">${rich(text)}</h2>`; i++; continue; }
+    if (kind === "pre") { html += `<pre data-b="${b0}">${rich(text)}</pre>`; i++; continue; }
     if (CODE_RE.test(text)) {
       const lines = [];
       while (i < blocks.length && blocks[i][0] === "p" && (CODE_RE.test(blocks[i][1]) || (lines.length && blocks[i + 1] && CODE_RE.test(blocks[i + 1][1]) && blocks[i][1].length < 80))) lines.push(blocks[i++][1]);
-      if (lines.length >= 2) { html += `<pre data-b="${b0}">${lines.map(l => highlight(l, regs)).join("\n")}</pre>`; continue; }
-      html += `<p data-b="${b0}">${highlight(lines[0], regs)}</p>`; continue;
+      if (lines.length >= 2) { html += `<pre data-b="${b0}">${lines.map(l => rich(l)).join("\n")}</pre>`; continue; }
+      html += `<p data-b="${b0}">${rich(lines[0])}</p>`; continue;
     }
     if (LIST_RE.test(text)) {
       const items = [];
       while (i < blocks.length && blocks[i][0] === "p" && LIST_RE.test(blocks[i][1])) items.push(blocks[i++][1]);
-      html += `<ul class="asis">${items.map((t, k) => `<li data-b="${b0 + k}">${highlight(t, regs)}</li>`).join("")}</ul>`;
+      html += `<ul class="asis">${items.map((t, k) => `<li data-b="${b0 + k}">${rich(t)}</li>`).join("")}</ul>`;
       continue;
     }
-    html += `<p data-b="${b0}">${highlight(text, regs)}</p>`; i++;
+    html += `<p data-b="${b0}">${rich(text)}</p>`; i++;
   }
   return html;
 }
@@ -1961,7 +2029,7 @@ function renderDoc(id, params) {
       return;
     }
     box.innerHTML = `${regs.length ? `<div class="docbar"><span id="mcount"></span><button id="prev">↑ Previous</button><button id="next">↓ Next match</button></div>` : ""}
-      <article class="doc">${content.blocks.length ? renderBlocks(content.blocks, regs) : "<p><em>This document has no text.</em></p>"}</article>`;
+      <article class="doc">${content.blocks.length ? renderBlocks(content.blocks, regs, content.links) : "<p><em>This document has no text.</em></p>"}</article>`;
     if (regs.length) {
       const marks = [...document.querySelectorAll(".doc mark")];
       let cur = -1;
@@ -2196,7 +2264,7 @@ function renderCandidate(id, params) {
     ["University", esc(c.university)],
     ["Company / organisation", esc(c.company) + (c.filled?.fields.includes("company") ? fromGh : "")],
     ["Location", esc(c.location) + (c.filled?.fields.includes("location") ? fromGh : "")],
-    ["Email", c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.filled?.fields.includes("email") ? fromGh : ""}` : ""],
+    ["Email", c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.filled?.fields.includes("email") ? fromGh : c.emailFrom ? ` <small style="color:var(--muted)">(from ${esc(c.emailFrom)})</small>` : ""}` : ""],
     ["About", c.bio ? esc(c.bio) + (c.filled?.fields.includes("bio") ? fromGh : "") : ""],
     ["Also known as", c.handle ? esc(c.handle) + ` <small style="color:var(--muted)">(real name from their GitHub profile)</small>` : ""],
     ["Role / institution", junkInstitution(c) ? "" : esc(c.institution)],
