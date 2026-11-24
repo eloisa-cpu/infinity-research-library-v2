@@ -66,7 +66,7 @@ def main():
     sample = None
     for u in (f for f in top if f["mimeType"] == D.FOLDER and f["name"] not in D.SKIP_DIRS):
         for r in D.list_children(u["id"])[:20]:
-            if r["mimeType"] == D.FOLDER and D.RESEARCHER_RE.match(r["name"]):
+            if r["mimeType"] == D.FOLDER:
                 sample = next((p for p in D.list_children(r["id"]) if D.PUB_RE.match(p["name"])), None)
                 if sample:
                     sample["where"] = f"{u['name']} / {r['name']}"
