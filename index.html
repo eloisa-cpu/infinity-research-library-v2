@@ -108,6 +108,12 @@
   .qtable td.n { text-align: right; font-variant-numeric: tabular-nums; }
   .qgood { color: #15803d; font-weight: 600; } .qmid { color: #b45309; font-weight: 600; } .qbad { color: #b91c1c; font-weight: 600; }
   .tag.partial { background: #fef3c7; color: #92400e; }
+  .cbadge { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: 3px; background: var(--code); color: var(--muted); letter-spacing: 0; }
+  .cbadge.lim { background: #fef3c7; color: #92400e; } .cbadge.no { background: #fee2e2; color: #991b1b; } .cbadge.open { background: #dcfce7; color: #166534; }
+  .tierhead { margin: 22px 0 10px; padding: 10px 14px; border-radius: 10px; background: #fffbeb; border: 1px solid #fde68a; font-size: 14px; }
+  .tierhead.unavailable { background: #fef2f2; border-color: #fecaca; }
+  .tierhead span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .more.subtle { background: none; color: var(--muted); border-style: dashed; }
   .doc .target { background: var(--accent-soft); outline: 6px solid var(--accent-soft); border-radius: 2px; }
   .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--code); color: var(--muted); margin-left: 6px; vertical-align: 2px; font-weight: 500; }
   .tag.ext { background: var(--ext-soft); color: var(--ext); }
@@ -233,6 +239,35 @@
   .loading { padding: 80px 0; text-align: center; color: var(--muted); }
   .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 14px 16px; border-radius: 10px; margin: 30px 0; }
   .error code { background: #fff; padding: 1px 5px; border-radius: 4px; }
+
+  /* cleaner search page: filters as a compact bar, welcome page, first-visit tip, help page */
+  .layout.single { grid-template-columns: 1fr; }
+  .refine { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 4px 0 6px; }
+  .refine-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding-bottom: 8px; }
+  .qf label { display: block; font-size: 12px; color: var(--muted); margin: 0 0 3px; }
+  .qf select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); max-width: 240px; font-size: 14px; }
+  .morebtn { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 6px 12px; cursor: pointer; font-size: 14px; color: var(--text); }
+  .morebtn:hover { border-color: var(--accent); }
+  .morepanel { display: flex; flex-wrap: wrap; gap: 10px 14px; padding: 12px 14px; margin: 6px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .morepanel[hidden] { display: none; }
+  .activef { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 4px; }
+  .fchip { border: 1px solid var(--accent-soft); background: var(--accent-soft); color: var(--text); border-radius: 99px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+  .fchip:hover { border-color: var(--accent); }
+  .clearall { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: 13px; }
+  .tipbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin: 8px 0; font-size: 14px; }
+  .tipbar button { border: 1px solid #f59e0b; background: #fff; border-radius: 7px; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+  .intro { max-width: 820px; padding: 8px 0 50px; }
+  .intro h1 { font-size: 26px; margin: 10px 0 6px; }
+  .intro .lead, .helppage .lead { font-size: 16px; color: var(--muted); margin: 0 0 14px; }
+  .intro .introsub { margin: 22px 0 8px; color: var(--muted); font-size: 14px; }
+  .steps { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 12px; }
+  .steps li { display: flex; gap: 14px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; font-size: 14px; line-height: 1.5; }
+  .steps .n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  .tp-help { font-size: 12.5px; color: var(--muted); margin: -2px 0 10px; line-height: 1.45; }
+  .helppage { max-width: 820px; padding-bottom: 60px; }
+  .helppage h2 { font-size: 18px; margin: 28px 0 8px; scroll-margin-top: 10px; }
+  .helppage li { margin: 6px 0; line-height: 1.5; }
+  .helptoc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -242,7 +277,8 @@
     <nav>
       <a href="#/" data-nav="search">Search</a>
       <a href="#/browse" data-nav="browse">Browse</a>
-      <a href="#/saved" data-nav="saved" title="Shortlisted candidates, bookmarked results and role tags">Saved <span class="count" id="slcount"></span><span class="syncdot" id="syncdot" hidden></span></a>
+      <a href="#/saved" data-nav="saved" title="People you've shortlisted, papers you've saved, and role tags">Shortlist <span class="count" id="slcount"></span><span class="syncdot" id="syncdot" hidden></span></a>
+      <a href="#/help" data-nav="help">Help</a>
     </nav>
     <div class="stats" id="stats"></div>
   </div>
@@ -280,6 +316,7 @@ const FACETS = [
   { key: "avail", label: "Content availability", get: d => d.availability || LOCAL, show: v => v === EXTERNAL ? "External link only" : "Full text in library" },
   { key: "year",  label: "Publication year", get: d => d.year ? String(d.year) : "No date" },
   { key: "group", label: "Source group",     get: d => d.group },
+  { key: "contact", label: "Contactability", get: d => TIER_LABEL[tierOf(S.cands.get(d.candidate))] },
 ];
 const PAGE = 40;
 const $app = document.getElementById("app");
@@ -626,6 +663,18 @@ async function keywordSearch(groups) {
 
 // ------------------------------------------------------------------ meaning search (one LSA vector per document)
 const SEM = { files: new Map(), results: new Map(), stats: { termShards: new Set(), docShards: new Set(), bytes: 0 } };
+// plain-English filler in recruiter searches ("people who write fast GPU kernels"): in Smart mode these words are not
+// required as exact words and are not shown as evidence; meaning search still reads the whole sentence
+SEM.stop = new Set(`people person persons someone somebody anyone folks who whom whose researcher researchers scientist scientists
+  engineer engineers expert experts specialist specialists candidate candidates work works worked working write writes wrote writing
+  written make makes made making build builds built building do does did doing find show looking want need good great best strong
+  experienced experience knows know paper papers`.split(/\s+/).filter(Boolean));
+// Smart mode: the exact-word part of the search leaves out filler words (when real words remain)
+function contentGroups(groups) {
+  const out = groups.map(g => { const k = g.filter(t => t.neg || t.phrase || !SEM.stop.has(t.text.toLowerCase())); return k.some(t => !t.neg) ? k : g; });
+  return out;
+}
+const groupsKey = groups => groups.map(g => g.map(t => (t.neg ? "-" : "") + (t.phrase ? '"' + t.text + '"' : t.text)).join(" ")).join(" OR ");
 window.IRL_SEM = SEM;
 function semEnabled() { return true; }
 function semTokenize(text) {
@@ -1144,13 +1193,14 @@ function route() {
   let view = parts[0] || "search";
   if (view === "shortlist") view = "saved";
   document.querySelectorAll("nav a").forEach(a =>
-    a.classList.toggle("active", a.dataset.nav === (view === "browse" || view === "candidate" ? "browse" : view === "saved" ? "saved" : view === "doc" ? "" : "search")));
+    a.classList.toggle("active", a.dataset.nav === (view === "browse" || view === "candidate" ? "browse" : view === "saved" ? "saved" : view === "help" ? "help" : view === "doc" ? "" : "search")));
   updateNavCount();
   if (view === "doc") return renderDoc(parts[1], params);
   if (view === "candidate") return renderCandidate(parts[1], params);
   if (view === "browse") return renderBrowse(params);
   if (view === "saved") return renderSaved(params);
   if (view === "quality") return renderQuality();
+  if (view === "help") return renderHelp(parts[1]);
   return renderSearch(params);
 }
 
@@ -1263,13 +1313,14 @@ function updateNavCount() {
 }
 function saveBtn(key) {
   const on = STORE.isSaved(key), cand = key.startsWith("c:");
-  const label = cand ? (on ? "★ Shortlisted" : "☆ Shortlist") : (on ? "🔖 Bookmarked" : "Bookmark");
-  const title = cand ? (on ? "Remove from shortlist" : "Add this candidate to the shortlist") : (on ? "Remove bookmark" : "Bookmark this result");
+  const label = cand ? (on ? "★ Shortlisted" : "☆ Shortlist") : (on ? "🔖 Bookmarked" : "🔖 Bookmark");
+  const title = cand ? (on ? "On your shortlist. Click to remove." : "Add this person to your shortlist of people to consider (see the Shortlist page)")
+    : (on ? "Saved. Click to remove." : "Save this paper to your Shortlist page, to read or share later");
   return `<button class="star${on ? " on" : ""}" data-save="${esc(key)}" aria-pressed="${on}" title="${title}">${label}</button>`;
 }
 function tagChips(key) { return STORE.tagsOf(key).map(t => `<span class="rtag">${esc(t)}</span>`).join(""); }
 function actions(key) {
-  return `<div class="actions">${saveBtn(key)}<button class="tagbtn" data-tagbtn="${esc(key)}" title="Assign role tags">🏷 Role tags</button></div>`;
+  return `<div class="actions">${saveBtn(key)}<button class="tagbtn" data-tagbtn="${esc(key)}" title="Note which open role this ${key.startsWith("c:") ? "person" : "work"} could fit, e.g. Research Engineer">🏷 Tag role</button></div>`;
 }
 function tagRow(key) { return `<div class="rtagrow"><span class="rtags" data-rtags="${esc(key)}">${tagChips(key)}</span></div>`; }
 function refreshItemViews(keys) {
@@ -1310,7 +1361,8 @@ function renderTagPop() {
   const { key, el } = POP;
   const mine = new Set(STORE.tagsOf(key));
   const kind = key.startsWith("c:") ? "candidate" : "result";
-  el.innerHTML = `<div class="tp-head"><span>Role tags for this ${kind}</span><button data-tpclose aria-label="Close">×</button></div>
+  el.innerHTML = `<div class="tp-head"><span>Which role could this ${kind === "candidate" ? "person" : kind} fit?</span><button data-tpclose aria-label="Close">×</button></div>
+    <p class="tp-help">Role tags group your shortlist by the open role you're hiring for. Filter and export by them on the Shortlist page. Pick one or more, or add your own.</p>
     <div class="tp-tags">${STORE.allTags().map(t => `<button data-tptoggle="${esc(t)}" class="${mine.has(t) ? "on" : ""}" aria-pressed="${mine.has(t)}">${mine.has(t) ? "✓ " : ""}${esc(t)}</button>`).join("")}</div>
     <form class="tp-new"><input placeholder="New role tag, e.g. Head of Kernels" maxlength="40" aria-label="New role tag"><button class="mini" type="submit">Add</button></form>
     <div class="tp-foot"><span>${STORE.isSaved(key) ? (key.startsWith("c:") ? "On the shortlist" : "Bookmarked") : "Tagging also " + (key.startsWith("c:") ? "shortlists" : "bookmarks") + " it"}</span><a href="#/saved?manage=1">Rename / delete tags</a></div>`;
@@ -1351,7 +1403,7 @@ const SYNC = (() => {
     const el = document.getElementById("syncstatus"); if (el) el.innerHTML = statusHtml();
   }
   function statusHtml() {
-    if (!cfg) return "Saved in this browser only. Set up team sync below to share with the hiring team.";
+    if (!cfg) return "Saved in this browser only. Turn on Team sharing below to share it with the hiring team.";
     const s = { idle: "Connecting…", syncing: "Syncing…", ok: "Shared with the team", error: "Sync problem" }[st.status] || st.status;
     return `<strong>${s}</strong> via <code>${esc(cfg.repo)}/${esc(cfg.path)}</code>${st.last ? ` · last synced ${st.last.toLocaleTimeString()}` : ""}${st.msg ? ` · <span style="color:#b91c1c">${esc(st.msg)}</span>` : ""}`;
   }
@@ -1412,8 +1464,26 @@ const SYNC = (() => {
 
 const FIT_ORDER = { Strong: 0, Medium: 1, Low: 2, "Not rated": 3 };
 const fitOf = c => c?.fit || "Not rated";
+// contactability, worked out when the library is built (tools/libcore.py: contactability): can the team reach this person?
+const TIER_ORDER = { ready: 0, limited: 1, unavailable: 2 };
+const TIER_LABEL = { ready: "Ready to contact", limited: "Limited info", unavailable: "Not contactable" };
+const tierOf = c => c?.contact?.tier || "ready";
+function contactBadge(c) {
+  const t = tierOf(c), why = (c?.contact?.reasons || []).join(" · ");
+  return (t === "limited" ? `<span class="cbadge lim" title="${esc(why)}">Limited info</span>` : t === "unavailable" ? `<span class="cbadge no" title="${esc(why)}">Not contactable</span>` : "")
+    + (c?.contact?.open === true ? `<span class="cbadge open" title="Their site says they are open to new roles">Open to opportunities</span>` : c?.contact?.open === false ? `<span class="cbadge" title="Their site says they are not looking">Not looking</span>` : "");
+}
+// where someone is: what we know (employer, university, location), never "not listed" placeholders
+function whereParts(c, d) {
+  const out = [], seen = new Set(), add = v => { v = (v || "").trim(); if (v && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); out.push(v); } };
+  add(c?.company); add(d?.university || c?.university); add(c?.location);
+  return out;
+}
+const liLink = c => c?.linkedin ? `<span><a href="${esc(c.linkedin)}" target="_blank" rel="noopener noreferrer" title="LinkedIn profile (from ${esc(c.linkedinFrom || "our records")})">LinkedIn ↗</a></span>` : "";
+const junkInstitution = c => !c.institution || [c.university, c.company, c.name, c.handle, c.github].some(v => v && v.toLowerCase() === c.institution.toLowerCase());
 function fitBadge(c) {
   const f = fitOf(c);
+  if (f === "Not rated") return "";        // most researchers have no rating: no badge, less noise
   return `<span class="fit fit-${f.toLowerCase().replace(/\s+/g, "-")}" title="Research team's fit rating">${esc(f === "Not rated" ? "Fit not rated" : f + " fit")}</span>`;
 }
 const misTag = d => d.attribution === "Needs Review"
@@ -1434,6 +1504,13 @@ function readLink(d, href) {
 const MODES = { hybrid: "Smart", keyword: "Exact words", semantic: "Meaning" };
 function srcOf(params) { const s = params.get("src"); return S.sources.some(x => x.id === s) ? s : "all"; }
 
+// which meaning-search hits count as matches: [test, maximum number]. AI-model similarities sit in a narrow band (unrelated
+// text still scores ~0.3-0.4), so its cut-off is a distance from the best match; LSA's is a share of the best match.
+function semKeep(sem, mode, top) {
+  return sem.engine === "ai"
+    ? (mode === "semantic" ? [h => h.score >= Math.max(0.5, top - 0.17), 150] : [h => h.score >= Math.max(0.55, top - 0.12), 80])
+    : (mode === "semantic" ? [h => h.score >= Math.max(0.12, top * 0.35), 150] : [h => h.score >= Math.max(0.15, top * 0.45), 80]);
+}
 function renderSearch(params) {
   const src = srcOf(params);
   const q = params.get("q") || "";
@@ -1489,7 +1566,8 @@ function renderSearch(params) {
   const kwPartial = new Map();
   const passesAll = d => facets.every(f => !filters[f.key] || f.get(d) === filters[f.key]);
   if (hasQuery) {
-    kwr = cachedSearch(KW, q.trim(), () => keywordSearch(groups));
+    const kwGroups = mode === "hybrid" ? contentGroups(groups) : groups;
+    kwr = cachedSearch(KW, groupsKey(kwGroups), () => keywordSearch(kwGroups));
     if (kwr.pending) kwNote = `<span class="semstate">Searching the full text…</span>`;
     else if (kwr.error) kwNote = `<span class="semstate err">Full-text search failed (${esc(kwr.error)}).</span>`;
     else if (mode !== "semantic") for (const [i, sc] of kwr.scores) { const d = S.docs[i]; if (d && (src === "all" || d.source === src)) kw.set(d.id, sc); }
@@ -1521,10 +1599,7 @@ function renderSearch(params) {
       const inPool = sem.hits.filter(h => { const d = S.byId.get(h.id); return d && (src === "all" || d.source === src) && !negated(d) && passes(d); });
       const top = inPool.length ? inPool[0].score : 0;
       // scores fall off quickly after a few very close matches, so the cut-off is generous and the list is capped
-      // AI-model similarities sit in a narrow band (unrelated text still scores ~0.3-0.4), so its cut-off is a distance from the best
-      const keep = sem.engine === "ai"
-        ? (mode === "semantic" ? [h => h.score >= Math.max(0.5, top - 0.17), 150] : [h => h.score >= Math.max(0.55, top - 0.12), 80])
-        : (mode === "semantic" ? [h => h.score >= Math.max(0.12, top * 0.35), 150] : [h => h.score >= Math.max(0.15, top * 0.45), 80]);
+      const keep = semKeep(sem, mode, top);
       inPool.filter(keep[0]).slice(0, keep[1]).forEach((h, i) => semRank.set(h.id, [i, h]));
     }
     const kwRank = new Map([...[...kw].sort((a, b) => b[1] - a[1]).map(([id]) => id), ...kwPartial.keys()].map((id, i) => [id, i]));
@@ -1558,18 +1633,23 @@ function renderSearch(params) {
     p.own = p.docs.filter(([d]) => d.type !== "Research summary").length;
     p.docs.sort((a, b) => (a[0].type === "Research summary") - (b[0].type === "Research summary") || b[1] - a[1]);
   }
-  const peopleList = [...people.values()];
-  if (sort === "fit") peopleList.sort((a, b) => FIT_ORDER[fitOf(a.c)] - FIT_ORDER[fitOf(b.c)] || b.covered - a.covered || b.score - a.score);
-  else if (sort === "candidate" || (!hasQuery && sort === "relevance")) peopleList.sort((a, b) => a.c.name.localeCompare(b.c.name));
-  else peopleList.sort((a, b) => b.covered - a.covered || b.score - a.score || a.c.name.localeCompare(b.c.name));
+  // people the team can actually contact come first; profiles that can't be contacted are kept but hidden unless asked for
+  const tierCmp = (a, b) => TIER_ORDER[tierOf(a)] - TIER_ORDER[tierOf(b)] || (b?.contact?.open === true) - (a?.contact?.open === true);
+  const showAll = params.get("all") === "1" || !!filters.contact;
+  const allPeople = [...people.values()];
+  const peopleList = showAll ? allPeople : allPeople.filter(p => tierOf(p.c) !== "unavailable");
+  const hiddenPeople = allPeople.length - peopleList.length;
+  if (sort === "fit") peopleList.sort((a, b) => tierCmp(a.c, b.c) || FIT_ORDER[fitOf(a.c)] - FIT_ORDER[fitOf(b.c)] || b.covered - a.covered || b.score - a.score);
+  else if (sort === "candidate" || (!hasQuery && sort === "relevance")) peopleList.sort((a, b) => tierCmp(a.c, b.c) || a.c.name.localeCompare(b.c.name));
+  else peopleList.sort((a, b) => tierCmp(a.c, b.c) || b.covered - a.covered || b.score - a.score || a.c.name.localeCompare(b.c.name));
 
   if (sort === "date") results.sort((a, b) => (b[0].year || 0) - (a[0].year || 0) || b[1] - a[1]);
   else if (sort === "candidate" || sort === "fit") results.sort((a, b) => (sort === "fit" ? FIT_ORDER[fitOf(S.cands.get(a[0].candidate))] - FIT_ORDER[fitOf(S.cands.get(b[0].candidate))] : 0) || a[0].name.localeCompare(b[0].name) || a[0].id.localeCompare(b[0].id));
-  else results.sort((a, b) => b[1] - a[1] || a[0].name.localeCompare(b[0].name));
+  else results.sort((a, b) => tierCmp(S.cands.get(a[0].candidate), S.cands.get(b[0].candidate)) || b[1] - a[1] || a[0].name.localeCompare(b[0].name));
   const ms = Math.round(performance.now() - t0);
 
   // facet options with counts (each facet ignores its own selection); people view counts people
-  const facetHtml = facets.map(f => {
+  const facetParts = facets.map(f => {
     const counts = new Map(), all = new Set();
     for (const [d] of scored) if (passes(d, f.key)) {
       const v = f.get(d), k = view === "people" ? d.candidate : d.id;
@@ -1588,39 +1668,71 @@ function renderSearch(params) {
       f.key === "cand" ? show(a[0]).localeCompare(show(b[0])) :
       f.key === "fit" ? FIT_ORDER[a[0]] - FIT_ORDER[b[0]] :
       last(a[0]) - last(b[0]) || b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
-    return `<label for="f-${f.key}">${f.label}</label>
+    return [f, `<label for="f-${f.key}">${f.label}</label>
       <select id="f-${f.key}" data-facet="${f.key}">
         <option value="">All (${all.size})</option>
         ${opts.map(([v, n]) => `<option value="${esc(v)}" ${v === filters[f.key] ? "selected" : ""}>${esc(show(v))} (${n})</option>`).join("")}
         ${capped ? `<option disabled>— ${(counts.size - CAP).toLocaleString()} more; search by name to narrow —</option>` : ""}
-      </select>`;
-  }).join("");
+      </select>`];
+  });
 
-  const regs = mode === "semantic" ? [] : positiveRegexes(groups);
-  const hlRegs = positiveRegexes(groups);
+  const regs = mode === "semantic" ? [] : positiveRegexes(mode === "hybrid" ? contentGroups(groups) : groups);
+  const hlRegs = positiveRegexes(mode === "hybrid" ? contentGroups(groups) : groups);
   const total = view === "people" ? peopleList.length : results.length;
   const srcName = src === "all" ? "the whole library" : srcLabel(src);
   let list;
   if (!hasQuery && !anyFilter) {
-    list = `<div class="empty">
-      <p>Search the complete text of every paper, page, post and research summary in ${esc(srcName)}. Describe what you're looking for in plain words, or use exact terms:</p>
-      <div class="examples">${["people who make LLM inference faster", "writing GPU kernels by hand", "compilers for machine learning", "\"reinforcement learning\"", "Triton OR CUTLASS", "quantiz*"]
+    const nPeople = [...S.cands.values()].filter(c => src === "all" || c.source === src).length;
+    list = `<div class="intro">
+      <h1>Find researchers for Infinity's open roles</h1>
+      <p class="lead">Search everything ${nPeople.toLocaleString()} researchers have written in ${esc(srcName)}: ${pool.length.toLocaleString()} papers, blog posts and pages, word for word.
+        Describe the skill you're hiring for in plain words.</p>
+      <div class="examples">${["people who make LLM inference faster", "writing GPU kernels by hand", "compilers for machine learning", "distributed training of large models", "reinforcement learning for reasoning"]
         .map(x => `<a href="${searchHref({ src, q: x })}">${esc(x)}</a>`).join("")}</div>
-      <p style="margin-top:18px">Or start from the research team's ratings:</p>
+      <ol class="steps">
+        <li><span class="n">1</span><div><strong>Search for a skill or topic</strong><br>Results list <em>people</em> first, ranked by how much of their work matches. Switch to <em>Documents</em> to see individual papers.</div></li>
+        <li><span class="n">2</span><div><strong>Check the evidence</strong><br>Each result shows the passage from their own work that matched, with the section and page. Open the full paper in one click.</div></li>
+        <li><span class="n">3</span><div><strong>☆ Shortlist and 🏷 tag the role</strong><br>Shortlist people worth contacting and tag the open role they could fit (for example <em>Research Engineer</em>).
+          They're collected on your <a href="#/saved">Shortlist</a> page, with notes and a spreadsheet export.</div></li>
+      </ol>
+      <p class="introsub">Or start from the research team's ratings:</p>
       <div class="examples">${["Kernels/GPU", "Compilers", "Inference & serving", "Training & distributed", "Hardware/accelerators", "ML research"]
         .map(t => `<a href="${searchHref({ src, fit: "Strong", track: t })}">Strong fit · ${esc(t)}</a>`).join("")}</div>
-      <p style="margin-top:18px">Or <a href="#/browse">browse by university, source and researcher</a>.</p>
-      <p style="margin-top:18px;font-size:13px"><a href="#/quality">Search quality and library health report</a></p></div>`;
+      <p class="introsub"><a href="#/browse">Browse by university and source</a> · <a href="#/help">How the library works</a> · <a href="#/quality">Search quality report</a></p>
+    </div>`;
   } else if ((useSem && sem.pending && mode === "semantic") || (kwr?.pending && mode !== "semantic" && !total)) {
     list = `<div class="empty">Searching ${mode === "semantic" ? "by meaning" : "the full text of the library"}…</div>`;
   } else if (!total) {
     list = `<div class="empty">No ${view === "people" ? "candidates" : "documents"} in ${esc(srcName)} match${hasQuery ? ` <strong>${esc(q)}</strong>` : ""}${anyFilter ? " with these filters" : ""}.</div>`;
   } else {
+    // a heading where the list moves from people ready to contact to profiles with limited or no contact information
+    const tierHead = (t, n) => `<div class="tierhead ${t}"><strong>${t === "limited" ? "Limited contact information" : "Can't be contacted"}</strong> · ${n.toLocaleString()} ${n === 1 ? "person" : "people"}
+      <span>${t === "limited" ? "No full real name, a dead or wrong website, or no recent activity. Worth a look, harder to reach." : "Suspended or deleted accounts, bots and organization accounts."}</span></div>`;
+    const sorted = sort !== "candidate" || hasQuery;
+    let lastTier = "ready";
     const cards = view === "people"
-      ? peopleList.slice(0, shown).map(p => personCard(p, terms, regs, hlRegs, q, hitInfo, mode)).join("")
+      ? peopleList.slice(0, shown).map(p => {
+          const t = tierOf(p.c), head = sorted && t !== lastTier ? tierHead(t, peopleList.filter(x => tierOf(x.c) === t).length) : "";
+          lastTier = t;
+          return head + personCard(p, terms, regs, hlRegs, q, hitInfo, mode);
+        }).join("")
       : results.slice(0, shown).map(([d]) => resultCard(d, hlRegs, q, hitInfo.get(d.id), mode)).join("");
-    list = cards + (total > shown ? `<button class="more" id="more">Show more (${(total - shown).toLocaleString()} remaining)</button>` : "");
+    list = cards + (total > shown ? `<button class="more" id="more">Show more (${(total - shown).toLocaleString()} remaining)</button>` : "")
+      + (view === "people" && hiddenPeople && total <= shown ? `<button class="more subtle" id="showall">Show ${hiddenPeople.toLocaleString()} ${hiddenPeople === 1 ? "profile" : "profiles"} that can't be contacted</button>` : "");
   }
+
+  // filters: the three most useful ones in a compact bar, the rest behind "More filters"; active ones as removable chips
+  const QUICK = ["uni", "year", "fit"];
+  const quickHtml = facetParts.filter(([f]) => QUICK.includes(f.key)).map(([f, h]) => `<div class="qf">${h}</div>`).join("");
+  const moreParts = facetParts.filter(([f]) => !QUICK.includes(f.key));
+  const moreActive = moreParts.filter(([f]) => filters[f.key]).length;
+  const activeChips = facets.filter(f => filters[f.key]).map(f => `<button type="button" class="fchip" data-unfilter="${f.key}" title="Remove this filter">${esc(f.label.replace(/ \(.*\)$/, ""))}: <strong>${esc((f.show || (v => v))(filters[f.key]))}</strong> ×</button>`).join("");
+  const refine = `<div class="refine">
+      <span class="refine-label">Refine</span>${quickHtml}
+      <button type="button" class="morebtn" id="morefilters" aria-expanded="${MOREOPEN}">More filters${moreActive ? ` (${moreActive})` : ""} ${MOREOPEN ? "▴" : "▾"}</button>
+    </div>
+    <div class="morepanel" id="morepanel" ${MOREOPEN ? "" : "hidden"}>${moreParts.map(([, h]) => `<div class="qf">${h}</div>`).join("")}</div>
+    ${anyFilter ? `<div class="activef">${activeChips}<button type="button" class="clearall" id="clear">Clear all filters</button></div>` : ""}`;
 
   // source tabs: switching keeps the query, mode, view and filters that apply everywhere
   const tabParams = id => { const p = new URLSearchParams(params); p.delete("n"); p.delete("source"); p.delete("group"); p.delete("cand"); p.set("src", id === "all" ? "" : id); return p; };
@@ -1630,10 +1742,10 @@ function renderSearch(params) {
   const desc = src === "all" ? "Search across every source in the library." : (S.sources.find(s => s.id === src)?.description || "");
   const modeBtn = m => `<button type="button" data-mode="${m}" class="${mode === m ? "on" : ""}" ${!semEnabled() && m !== "keyword" ? "disabled" : ""}>${MODES[m]}</button>`;
   const hint = {
-    hybrid: `Matches exact words <em>and</em> documents with a related meaning. <code>"exact phrase"</code> · <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> still work.`,
-    keyword: `Documents with every word come first (any order; <code>"quoted words"</code> must all appear); if few have them all, documents with most of them follow, labelled with the words they lack. <code>CUDA OR Triton</code> · <code>-exclude</code> · <code>quantiz*</code> for word starts.`,
-    semantic: `Ranks passages by meaning, even when they use different words. <code>-word</code> still excludes.`,
-  }[mode];
+    hybrid: `<strong>Recommended.</strong> Finds your exact words and work about the same idea in other words.`,
+    keyword: `Only work that contains your words (any order). If few contain them all, close matches follow, labelled with the missing words.`,
+    semantic: `Finds work about the same idea, even when it uses completely different words.`,
+  }[mode] + ` <a href="#/help/tips">Search tips</a>`;
 
   $app.innerHTML = `
     <nav class="srctabs" aria-label="Sources">${tabs.map(t => `<a href="#/?${new URLSearchParams([...tabParams(t.id)].filter(([, v]) => v))}" class="${t.id === src ? "on" : ""}" data-src="${t.id}" ${t.id === src ? 'aria-current="page"' : ""}>${esc(t.label)}<small>${t.n.toLocaleString()}</small></a>`).join("")}</nav>
@@ -1646,10 +1758,11 @@ function renderSearch(params) {
       <div class="searchopts"><span class="seg small" role="group" aria-label="Search mode">${modeBtn("hybrid")}${modeBtn("keyword")}${modeBtn("semantic")}</span>
         <span class="hint">${semEnabled() ? hint : "Meaning search needs the site to be served over http(s). " + hint}</span></div>
     </section>
-    <div class="layout">
-      <aside class="filters"><details id="fbox" ${anyFilter || matchMedia("(min-width: 821px)").matches ? "open" : ""}>
-        <summary>Filters${anyFilter ? ` (${Object.values(filters).filter(Boolean).length} active)` : ""}</summary>
-        ${facetHtml}${anyFilter ? `<button class="clear" id="clear">Clear filters</button>` : ""}</details></aside>
+    ${hasQuery || anyFilter ? refine : ""}
+    ${(hasQuery || anyFilter) && !localStorage.getItem("irl-tip-v1") ? `<div class="tipbar" id="tipbar"><span><strong>New here?</strong> On each result, <strong>☆ Shortlist</strong> keeps a person you'd consider,
+      and <strong>🏷 Tag role</strong> notes which open role they could fit. Both are collected on your <a href="#/saved">Shortlist</a> page. <a href="#/help">How the library works</a></span>
+      <button type="button" id="tipok">Got it</button></div>` : ""}
+    <div class="layout single">
       <section id="results">
         ${hasQuery || anyFilter ? `<div class="summary-line">
           <span class="seg">${tabBtn("people", "Candidates", view)}${tabBtn("docs", "Documents", view)}</span>
@@ -1677,6 +1790,11 @@ function renderSearch(params) {
   document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => update({ view: b.dataset.view === "docs" ? "docs" : "", sort: sort === "date" ? "" : sort }));
   const sortEl = document.getElementById("sort"); if (sortEl) sortEl.onchange = () => update({ sort: sortEl.value === "relevance" ? "" : sortEl.value });
   const clr = document.getElementById("clear"); if (clr) clr.onclick = () => update(Object.fromEntries(facets.map(f => [f.key, ""])));
+  document.querySelectorAll("[data-unfilter]").forEach(b => b.onclick = () => update({ [b.dataset.unfilter]: "" }));
+  const mb = document.getElementById("morefilters");
+  if (mb) mb.onclick = () => { MOREOPEN = !MOREOPEN; document.getElementById("morepanel").hidden = !MOREOPEN; mb.setAttribute("aria-expanded", MOREOPEN); mb.innerHTML = mb.innerHTML.replace(/[▴▾]/, MOREOPEN ? "▴" : "▾"); };
+  const tok = document.getElementById("tipok"); if (tok) tok.onclick = () => { localStorage.setItem("irl-tip-v1", "1"); document.getElementById("tipbar").remove(); };
+  const sa = document.getElementById("showall"); if (sa) sa.onclick = () => update({ all: "1" });
   const more = document.getElementById("more");
   if (more) more.onclick = () => {
     const y = scrollY, p = new URLSearchParams(params);
@@ -1687,6 +1805,7 @@ function renderSearch(params) {
   };
   if (!q && !anyFilter) document.getElementById("q").focus();
 }
+let MOREOPEN = false;
 const tabBtn = (v, label, view) => `<button data-view="${v}" class="${view === v ? "on" : ""}">${label}</button>`;
 function searchHref(o) { return "#/?" + new URLSearchParams(Object.entries(o).filter(([k, v]) => v && !(k === "src" && v === "all"))); }
 function docHref(d, q, hit) {
@@ -1696,17 +1815,17 @@ function docHref(d, q, hit) {
 }
 
 function personCard(p, terms, regs, hlRegs, q, hitInfo, mode) {
-  const c = p.c, qs = q ? "?q=" + encodeURIComponent(q) : "", key = STORE.key("c", c.id);
+  const c = p.c, qs = q ? "?q=" + encodeURIComponent(q) + (mode && mode !== "hybrid" ? "&mode=" + mode : "") : "", key = STORE.key("c", c.id);
   const evidence = p.docs.slice(0, 3).map(([d]) => { const h = hitInfo.get(d.id); return `<div class="evidence">
       <a href="${docHref(d, q, h)}">${highlight(d.title, hlRegs)}</a><span class="tag">${esc(d.type)}</span>${isExternal(d) ? availTag(d) : ""}${misTag(d)}${h?.sem && !h.kw ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}${partialTag(h)}
       ${q ? passageSlot(d, q, mode, h) : ""}${readLink(d, docHref(d, q, h))}</div>`; }).join("");
   const semOnly = p.docs.every(([d]) => !hitInfo.get(d.id)?.kw);
   return `<article class="result person">
     <div class="person-head">
-      <h3><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}${qs}">${esc(c.name)}</a> ${fitBadge(c)}</h3>
+      <h3><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}${qs}">${esc(c.name)}</a> ${fitBadge(c)}${contactBadge(c)}</h3>
       ${actions(key)}
     </div>
-    <div class="meta">${c.track ? `<span><strong>${esc(c.track)}</strong></span>` : ""}<span>${esc(c.university || "University not listed")}</span>${c.company ? `<span>${esc(c.company)}</span>` : ""}<span>${esc(srcLabel(c.source))}</span></div>
+    <div class="meta">${c.track ? `<span><strong>${esc(c.track)}</strong></span>` : ""}${whereParts(c).map(v => `<span>${esc(v)}</span>`).join("")}<span>${esc(srcLabel(c.source))}</span>${liLink(c)}</div>
     ${tagRow(key)}
     ${c.fitReason ? `<p class="reason"><span>Research team:</span> ${esc(c.fitReason)}</p>` : ""}
     ${terms.length && mode !== "semantic" ? `<div class="cover">${terms.map((t, i) => `<span class="chip ${p.cover[i] ? "yes" : "no"}" title="${p.cover[i]} matching document(s)">${p.cover[i] ? "✓" : "✗"} ${esc(t.text)}${p.cover[i] ? ` <small>${p.cover[i]}</small>` : ""}</span>`).join("")}
@@ -1719,7 +1838,7 @@ function personCard(p, terms, regs, hlRegs, q, hitInfo, mode) {
 function metaLine(d, withName = true) {
   return `<div class="meta">
     ${withName ? `<span><a class="pname" href="#/candidate/${encodeURIComponent(d.candidate)}"><strong>${esc(d.name)}</strong></a></span>` : ""}
-    <span>${esc(d.university || "University not listed")}</span>
+    ${whereParts(S.cands.get(d.candidate), d).map(v => `<span>${esc(v)}</span>`).join("")}
     <span>${esc(d.platform)}</span>
     ${d.date ? `<span>${esc(d.date)}</span>` : ""}
     <span>${esc(srcLabel(d.source))}</span>
@@ -1881,6 +2000,71 @@ function renderDoc(id, params) {
   });
 }
 
+// ------------------------------------------------------------------ help: how the library works, in plain words
+function renderHelp(section) {
+  const n = S.docs.length.toLocaleString(), p = S.cands.size.toLocaleString();
+  $app.innerHTML = `<div class="page helppage">
+    <h1>How the library works</h1>
+    <p class="lead">The Infinity Research Library helps the hiring team find researchers whose own work shows the skills we need, check the evidence, and keep track of who to contact.
+      It holds ${n} papers, blog posts and pages by ${p} researchers and candidates.</p>
+    <nav class="helptoc">${[["what", "What's in it"], ["search", "Searching"], ["tips", "Search tips"], ["results", "Reading a result"], ["shortlist", "Shortlist, bookmarks and role tags"], ["team", "Sharing with the team"], ["privacy", "Privacy"]]
+      .map(([id, t]) => `<a href="#/help/${id}">${t}</a>`).join("")}</nav>
+
+    <h2 id="h-what">What's in it</h2>
+    <ul>
+      <li><strong>University Data</strong>: research papers by university researchers, from the team's Google Drive archive (Top 50 list and wider university research).</li>
+      <li><strong>Personal Blogs from Priority Companies</strong>: blogs and technical writing by people at OpenAI, Anthropic, Eigen AI, Jane Street, ML Sys and Kernel GitHub DB.</li>
+      <li>Some candidates also have a <strong>fit rating</strong> (Strong, Medium…) and a <strong>track</strong> (Kernels/GPU, Compilers…) from the research team.</li>
+    </ul>
+
+    <h2 id="h-search">Searching</h2>
+    <p>Type the skill or topic you're hiring for, in plain words: <em>people who make LLM inference faster</em> works as well as <em>KV cache</em>. Three modes:</p>
+    <ul>
+      <li><strong>Smart</strong> (recommended): your exact words plus work about the same idea in other words.</li>
+      <li><strong>Exact words</strong>: only work that contains your words. If few contain them all, close matches follow, labelled with the missing words.</li>
+      <li><strong>Meaning</strong>: work about the same idea, even with completely different words. Good for broad or unusual searches.</li>
+    </ul>
+    <p>Results show <strong>Candidates</strong> (people, ranked by how much of their work matches) or <strong>Documents</strong> (individual papers).
+      Use <strong>Refine</strong> to narrow by university, year or fit rating; <strong>More filters</strong> has the rest (venue, file type, Needs Review…).</p>
+
+    <h2 id="h-tips">Search tips</h2>
+    <table class="qtable"><tr><th>Type</th><th>To find</th></tr>
+      <tr><td><code>"tensor core"</code></td><td>both words (quoted words must all appear)</td></tr>
+      <tr><td><code>CUDA OR Triton</code></td><td>either word</td></tr>
+      <tr><td><code>kernels -survey</code></td><td>leave out work that mentions "survey"</td></tr>
+      <tr><td><code>quantiz*</code></td><td>words starting with quantiz: quantization, quantized…</td></tr>
+    </table>
+
+    <h2 id="h-results">Reading a result</h2>
+    <ul>
+      <li><strong>Relevant passage</strong>: the part of their work that matched, in their own words, with the section and page. <em>Open at this passage</em> jumps straight there.</li>
+      <li><strong>Closest passage by meaning</strong>: no exact words matched; this is the part closest in meaning to your search.</li>
+      <li><strong>✓ / ✗ word chips</strong> (people view): which of your search words appear in their work, and in how many documents.</li>
+      <li><span class="tag semhit">≈ related</span> found by meaning rather than exact words · <span class="tag partial">Has 2 of 3 words</span> a close match, missing some words.</li>
+      <li><span class="tag">📄 Full text in library</span> the paper can be read here · <span class="tag ext">↗ External link only</span> only a link to the publisher is available.</li>
+      <li><span class="tag ext">⚠ Needs Review</span> we're not certain this paper belongs to this researcher (for example two people with the same name). Check before relying on it.</li>
+    </ul>
+
+    <h2 id="h-shortlist">Shortlist, bookmarks and role tags</h2>
+    <ul>
+      <li><strong>☆ Shortlist</strong> (on a person) adds them to your list of people to consider for a role. Click again to remove.</li>
+      <li><strong>🔖 Bookmark</strong> (on a paper) saves a paper you want to read again or share.</li>
+      <li><strong>🏷 Tag role</strong> notes which open role a person could fit: CEO, CTO, Research Scientist, Research Engineer… or your own (for example <em>Head of Kernels</em>).
+        Tags let you filter your shortlist and export one role at a time. Tagging someone also shortlists them.</li>
+      <li>Everything is collected on the <a href="#/saved">Shortlist</a> page, where you can add <strong>notes</strong> and <strong>export a spreadsheet</strong> (CSV) for outreach,
+        with each person's links, university, matching papers, tags and notes.</li>
+    </ul>
+
+    <h2 id="h-team">Sharing with the team</h2>
+    <p>Your shortlist is kept in this browser. To share one shortlist with the whole hiring team, turn on <strong>Team sharing</strong> at the bottom of the
+      <a href="#/saved">Shortlist</a> page (it needs a GitHub access token once per person; ask whoever manages the library). You can also download a backup and import it in another browser.</p>
+
+    <h2 id="h-privacy">Privacy</h2>
+    <p>Only Google accounts with access to the team's Drive archive can open the library; its data is encrypted. Papers open straight from Google Drive.
+      Searches, including meaning search, run inside your browser and are not sent anywhere.</p>
+  </div>`;
+  if (section) setTimeout(() => document.getElementById("h-" + section)?.scrollIntoView({ block: "start" }), 0); else scrollTo(0, 0);
+}
 // ------------------------------------------------------------------ search quality and library health report
 // Written by tools/search_eval.js at each build (the site's own search, run automatically on the real library).
 function renderQuality() {
@@ -1982,30 +2166,49 @@ function renderCandidate(id, params) {
   const c = S.cands.get(id);
   if (!c) { $app.innerHTML = `<div class="page"><div class="empty">Researcher not found. <a href="#/browse">Browse</a></div></div>`; return; }
   const q = params?.get("q") || "";
+  // the same search as the results page (exact words and meaning, in the same mode), so a candidate found by meaning
+  // shows which of their documents matched instead of "0 match"
+  const mode = MODES[params?.get("mode")] ? params.get("mode") : "hybrid";
   const groups = q ? parseQuery(q) : [];
-  const regs = positiveRegexes(groups);
+  const kwGroups = mode === "hybrid" ? contentGroups(groups) : groups;
+  const regs = mode === "semantic" ? [] : positiveRegexes(kwGroups);
   const key = STORE.key("c", c.id);
-  const kwr = groups.length ? cachedSearch(KW, q.trim(), () => keywordSearch(groups)) : null;
-  const matched = d => !!kwr?.scores?.has(d.i);
+  const kwr = groups.length && mode !== "semantic" ? cachedSearch(KW, groupsKey(kwGroups), () => keywordSearch(kwGroups)) : null;
+  let sem = null;
+  if (groups.length && mode !== "keyword") {
+    const text = semText(groups);
+    sem = cachedSearch(SEM.results, `all||auto|${text.toLowerCase()}`, () => meaningSearch(text, "all", "", "auto"));
+  }
+  const bySem = new Set();
+  if (sem?.hits?.length && sem.known?.length) { const [ok, cap] = semKeep(sem, mode, sem.hits[0].score); sem.hits.filter(ok).slice(0, cap).forEach(h => bySem.add(h.id)); }
+  const kwHit = d => !!kwr?.scores?.has(d.i) || (mode === "keyword" && !!kwr?.partial?.has(d.i));
   const docs = c.docs.map(x => S.byId.get(x)).filter(Boolean)
-    .map(d => [d, matched(d) ? 1 : 0])
+    .map(d => [d, kwHit(d) ? 2 : bySem.has(d.id) ? 1 : 0])
     .sort((a, b) => b[1] - a[1] || (a[0].type === "Research summary") - (b[0].type === "Research summary") || (b[0].year || 0) - (a[0].year || 0));
-  const nMatch = docs.filter(([, sc]) => sc > 0).length;
+  const nMatch = docs.filter(([, sc]) => sc > 0).length, nMeaning = docs.filter(([, sc]) => sc === 1).length;
+  const searching = !!(kwr?.pending || sem?.pending);
+  const fromGh = ` <small style="color:var(--muted)" title="Self-reported on their public GitHub profile; may be out of date">(from GitHub profile)</small>`;
   const rows = [
     ["Fit for Infinity", c.fit ? esc(c.fit) : c.source === "university" ? "" : "Not rated"],
     ["Track", esc(c.track)],
     ["Why (research team)", esc(c.fitReason)],
     ["Relevance", esc(c.relevance)],
-    ["University", esc(c.university || "Not listed")],
-    ["Company / organisation", esc(c.company)],
-    ["Role / institution", c.institution && c.institution !== c.university && c.institution !== c.company ? esc(c.institution) : ""],
+    ["University", esc(c.university)],
+    ["Company / organisation", esc(c.company) + (c.filled?.fields.includes("company") ? fromGh : "")],
+    ["Location", esc(c.location) + (c.filled?.fields.includes("location") ? fromGh : "")],
+    ["Email", c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${c.filled?.fields.includes("email") ? fromGh : ""}` : ""],
+    ["About", c.bio ? esc(c.bio) + (c.filled?.fields.includes("bio") ? fromGh : "") : ""],
+    ["Also known as", c.handle ? esc(c.handle) + ` <small style="color:var(--muted)">(real name from their GitHub profile)</small>` : ""],
+    ["Role / institution", junkInstitution(c) ? "" : esc(c.institution)],
     ["Source", esc(srcLabel(c.source)) + ` <small style="color:var(--muted)">(${esc(c.group)})</small>`],
     ["Researcher match", c.match ? esc(c.match) + (/review/i.test(c.match) ? " ⚠" : "") : ""],
     ["OpenAlex", c.openalex ? extLink(c.openalex) : ""],
     ["ORCID", c.orcid ? extLink(c.orcid) : ""],
+    ["Contactability", `<strong>${TIER_LABEL[tierOf(c)]}</strong>${c.contact?.reasons?.length ? `<br><small style="color:var(--muted)">${c.contact.reasons.map(esc).join("<br>")}</small>` : ""}${c.contact?.open === true ? `<br><small>${c.hireable ? "Marked “available for hire” on GitHub." : "Their site says they are open to new roles."}</small>` : c.contact?.open === false ? "<br><small>Their site says they are not looking.</small>" : ""}`],
     ["Archive folder", c.driveFolder ? `<a href="https://drive.google.com/drive/folders/${encodeURIComponent(c.driveFolder)}" target="_blank" rel="noopener noreferrer">Open in Google Drive ↗</a>` : ""],
     ["Blog / site", extLink(c.site)],
     ["GitHub", c.github ? extLink("https://github.com/" + c.github.replace(/^@/, "")) : ""],
+    ["LinkedIn", c.linkedin ? `${extLink(c.linkedin)} <small style="color:var(--muted)">(from ${esc(c.linkedinFrom || "our records")})</small>` : ""],
     ["X", c.x ? esc(c.x) : ""],
     ["Status", esc(c.status)],
     ["Note", esc(c.note)],
@@ -2013,16 +2216,16 @@ function renderCandidate(id, params) {
   const review = docs.filter(([d]) => d.attribution === "Needs Review").length;
   const qs = q ? "?q=" + encodeURIComponent(q) : "";
   $app.innerHTML = `<div class="page">
-    <div class="crumbs">${q ? `<a href="#/?q=${encodeURIComponent(q)}">← Results for ${esc(q)}</a> · ` : ""}<a href="#/browse">Browse</a> › ${esc(c.university || srcLabel(c.source))}</div>
-    <div class="person-head"><h1><span class="pname">${esc(c.name)}</span> ${c.source === "university" ? "" : fitBadge(c)}</h1>${actions(key)}</div>
+    <div class="crumbs">${q ? `<a href="#/?q=${encodeURIComponent(q)}${mode !== "hybrid" ? "&mode=" + mode : ""}">← Results for ${esc(q)}</a> · ` : ""}<a href="#/browse">Browse</a> › ${esc(c.university || srcLabel(c.source))}</div>
+    <div class="person-head"><h1><span class="pname">${esc(c.name)}</span> ${c.source === "university" ? "" : fitBadge(c)}${contactBadge(c)}</h1>${actions(key)}</div>
     ${tagRow(key)}
-    <dl class="infobox">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    <dl class="infobox">${rows.filter(([, v]) => String(v).replace(/<[^>]*>/g, "").trim()).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
     ${review ? `<p class="notice">⚠ ${review} of these documents ${review === 1 ? "has" : "have"} an uncertain researcher match (Needs Review).</p>` : ""}
-    <h2 style="font-size:16px">${docs.length} document${docs.length === 1 ? "" : "s"}${q ? ` · ${kwr?.pending ? "searching…" : `${nMatch} match “${esc(q)}”`}` : ""}</h2>
-    <ul class="doclist">${docs.map(([d, sc]) => { const dk = STORE.key("d", d.id); return `<li${q && !sc ? ' class="dim"' : ""}><div class="person-head"><div><a href="#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}"><strong>${highlight(d.title, regs)}</strong></a> <span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}</div>${actions(dk)}</div>
+    <h2 style="font-size:16px">${docs.length} document${docs.length === 1 ? "" : "s"}${q ? ` · ${searching && !nMatch ? "searching…" : `${nMatch} match “${esc(q)}”${nMeaning ? ` <small style="color:var(--muted);font-weight:400">(${nMeaning === nMatch ? "all" : nMeaning} by related meaning)</small>` : ""}`}` : ""}</h2>
+    <ul class="doclist">${docs.map(([d, sc]) => { const dk = STORE.key("d", d.id); return `<li${q && !sc && !searching ? ' class="dim"' : ""}><div class="person-head"><div><a href="#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}"><strong>${highlight(d.title, regs)}</strong></a> <span class="tag">${esc(d.type)}</span>${availTag(d)}${misTag(d)}${sc === 1 ? `<span class="tag semhit" title="Found by meaning rather than exact words">≈ related</span>` : ""}</div>${actions(dk)}</div>
       <div class="meta"><span>${esc(d.platform)}</span>${d.date ? `<span>${esc(d.date)}</span>` : ""}${isExternal(d) || !d.len ? "" : `<span>${d.len.toLocaleString()} indexed words</span>`}${d.fmt === "pdf" ? "<span>PDF</span>" : ""}</div>
       ${tagRow(dk)}
-      ${sc ? passageSlot(d, q, "keyword", { kw: true }) : ""}${readLink(d, `#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}`)}</li>`; }).join("")}</ul>
+      ${sc ? passageSlot(d, q, mode, { kw: sc === 2 }) : ""}${readLink(d, `#/doc/${encodeURIComponent(d.id)}${sc ? qs : ""}`)}</li>`; }).join("")}</ul>
   </div>`;
   scrollTo(0, 0);
 }
@@ -2049,8 +2252,8 @@ function renderSaved(params) {
   const candCard = it => {
     const c = S.cands.get(it.id), key = it.key, bms = bmByCand.get(c.id) || [];
     return `<article class="result person">
-      <div class="person-head"><h3><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}">${esc(c.name)}</a> ${fitBadge(c)}</h3>${actions(key)}</div>
-      <div class="meta">${c.track ? `<span><strong>${esc(c.track)}</strong></span>` : ""}<span>${esc(c.university || "University not listed")}</span>${c.company ? `<span>${esc(c.company)}</span>` : ""}<span>${esc(srcLabel(c.source))}</span><span>${c.docs.length} document${c.docs.length === 1 ? "" : "s"}</span>${c.site ? `<span>${extLink(c.site)}</span>` : ""}</div>
+      <div class="person-head"><h3><a class="pname" href="#/candidate/${encodeURIComponent(c.id)}">${esc(c.name)}</a> ${fitBadge(c)}${contactBadge(c)}</h3>${actions(key)}</div>
+      <div class="meta">${c.track ? `<span><strong>${esc(c.track)}</strong></span>` : ""}${whereParts(c).map(v => `<span>${esc(v)}</span>`).join("")}<span>${esc(srcLabel(c.source))}</span>${liLink(c)}<span>${c.docs.length} document${c.docs.length === 1 ? "" : "s"}</span>${c.site ? `<span>${extLink(c.site)}</span>` : ""}</div>
       ${tagRow(key)}
       ${c.fitReason ? `<p class="reason"><span>Research team:</span> ${esc(c.fitReason)}</p>` : ""}
       ${bms.length ? `<ul class="bmlist">${bms.map(d => `<li>🔖 <a href="#/doc/${encodeURIComponent(d.id)}">${esc(d.title)}</a></li>`).join("")}</ul>` : ""}
@@ -2070,21 +2273,24 @@ function renderSaved(params) {
   };
 
   $app.innerHTML = `<div class="page">
-    <div class="person-head"><h1>Saved</h1></div>
+    <div class="person-head"><h1>Your shortlist</h1></div>
+    <p class="help" style="max-width:760px">People you're considering and papers you've saved, in one place. Tag each person with the role they could fit,
+      add notes for the team, and export a spreadsheet for outreach. Add people with <strong>☆ Shortlist</strong> and papers with <strong>🔖 Bookmark</strong> on any search result.
+      <a href="#/help/shortlist">More about the shortlist</a></p>
     <p class="notice" id="syncstatus">${SYNC.statusHtml()}</p>
     <div class="toolbar">
-      <span class="seg"><button data-stab="cands" class="${tab === "cands" ? "on" : ""}">Shortlisted candidates (${cands.length})</button><button data-stab="docs" class="${tab === "docs" ? "on" : ""}">Bookmarked results (${docs.length})</button></span>
+      <span class="seg"><button data-stab="cands" class="${tab === "cands" ? "on" : ""}">People (${cands.length})</button><button data-stab="docs" class="${tab === "docs" ? "on" : ""}">Saved papers (${docs.length})</button></span>
       <span>${shown.length ? `<button class="btn" id="csv">Export CSV${tag ? " (" + esc(tag === "__none" ? "untagged" : tag) + ")" : ""}</button>` : ""}
         ${items.length ? `<button class="btn subtle" id="slclear">Remove all</button>` : ""}</span>
     </div>
-    ${items.length ? `<div class="tagfilter" aria-label="Filter by role tag"><span class="hint">Role tag:</span>
+    ${items.length ? `<div class="tagfilter" aria-label="Filter by role tag"><span class="hint">Filter by role:</span>
       <a href="${href({ tag: "" })}" class="${!tag ? "on" : ""}">All (${items.length})</a>
       ${allTags.filter(t => tagCount.has(t)).map(t => `<a href="${href({ tag: t })}" data-tagfilter="${esc(t)}" class="${tag === t ? "on" : ""}">${esc(t)} (${tagCount.get(t)})</a>`).join("")}
       ${untagged ? `<a href="${href({ tag: "__none" })}" class="${tag === "__none" ? "on" : ""}">Untagged (${untagged})</a>` : ""}</div>` : ""}
     ${shown.length ? shown.map(tab === "docs" ? docCard : candCard).join("")
-      : `<div class="empty">${items.length ? "Nothing here has this role tag." : tab === "docs"
-        ? "No bookmarks yet. Use Bookmark on a result in the Documents view of a search, or on any document page."
-        : "No one shortlisted yet. Use ☆ Shortlist on a candidate in search results or on their page."}</div>`}
+      : `<div class="empty">${items.length ? "No one here has this role tag yet." : tab === "docs"
+        ? "No saved papers yet. Use 🔖 Bookmark on any paper in search results or on its page."
+        : "No one on your shortlist yet. Search for a skill, then use ☆ Shortlist on a person you'd like to consider."}</div>`}
 
     <details class="panel" id="managetags" ${params.get("manage") ? "open" : ""}><summary>Manage role tags (${allTags.length})</summary><div>
       <p class="help">Renaming or deleting a tag changes it on every candidate and result that has it. Add tags here or from the 🏷 Role tags button on any result.</p>
@@ -2156,11 +2362,11 @@ function download(text, type, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 function downloadCandsCsv(list, bmByCand) {
-  const cols = ["Name", "Role tags", "Fit for Infinity", "Track", "Fit reason (research team)", "Source", "Source group", "University", "Company / organisation",
-    "Role / institution", "Blog / site", "GitHub", "X", "Relevance", "Research note", "Archived documents", "Source URLs", "Bookmarked results", "Notes", "Last changed by", "Library link"];
+  const cols = ["Name", "Contactability", "Open to opportunities", "Role tags", "Fit for Infinity", "Track", "Fit reason (research team)", "Source", "Source group", "University", "Company / organisation",
+    "Location", "Email", "LinkedIn", "Role / institution", "Blog / site", "GitHub", "X", "Relevance", "Research note", "Archived documents", "Source URLs", "Bookmarked results", "Notes", "Last changed by", "Library link"];
   const rows = list.map(it => {
     const c = S.cands.get(it.id), docs = c.docs.map(x => S.byId.get(x)).filter(Boolean);
-    return [c.name, it.tags.join("; "), c.fit || "Not rated", c.track, c.fitReason, srcLabel(c.source), c.group, c.university, c.company, c.institution, c.site, c.github, c.x,
+    return [c.name, TIER_LABEL[tierOf(c)] + (c.contact?.reasons?.length ? ": " + c.contact.reasons.join("; ") : ""), c.contact?.open === true ? "Yes" : c.contact?.open === false ? "No (says not looking)" : "", it.tags.join("; "), c.fit || "Not rated", c.track, c.fitReason, srcLabel(c.source), c.group, c.university, c.company, c.location, c.email, c.linkedin, junkInstitution(c) ? "" : c.institution, c.site, c.github, c.x,
       c.relevance, c.note, docs.filter(d => !isExternal(d)).length, [...new Set(docs.map(d => d.url).filter(Boolean))].join(" "),
       (bmByCand.get(c.id) || []).map(d => d.title).join("; "), it.note, it.by, libLink("#/candidate/" + encodeURIComponent(c.id))];
   });
@@ -2181,7 +2387,7 @@ function downloadDocsCsv(list) {
 function renderBrowse(params) {
   const mode = ["group", "source"].includes(params.get("by")) ? params.get("by") : "university";
   const filter = (params.get("f") || "").toLowerCase();
-  const keyOf = c => mode === "group" ? c.group : mode === "source" ? srcLabel(c.source) : (c.university || "University not listed");
+  const keyOf = c => mode === "group" ? c.group : mode === "source" ? srcLabel(c.source) : (c.university || "No university (industry and independent)");
   const buckets = new Map();
   for (const c of S.index.candidates) {
     const hay = (c.name + " " + c.university + " " + c.institution + " " + c.group + " " + (c.company || "")).toLowerCase();
@@ -2190,7 +2396,7 @@ function renderBrowse(params) {
     if (!buckets.has(k)) buckets.set(k, []);
     buckets.get(k).push(c);
   }
-  const keys = [...buckets.keys()].sort((a, b) => (a === "University not listed") - (b === "University not listed") || a.localeCompare(b));
+  const keys = [...buckets.keys()].sort((a, b) => (a === "No university (industry and independent)") - (b === "No university (industry and independent)") || a.localeCompare(b));
   const open = filter || keys.length <= 3;
   $app.innerHTML = `<div class="page">
     <div class="browse-head">
